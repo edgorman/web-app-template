@@ -39,3 +39,4 @@ These records came with the template. They hold for any repository made from it 
 | [31](0031-replan-at-apply.md) | Applies re-plan instead of applying a saved plan | ci |
 | [32](0032-separate-plan-and-apply-identities.md) | Plan and apply authenticate as separate identities | infrastructure |
 | [33](0033-advisory-security-scanning.md) | Security scanning is advisory | ci |
+| [34](0034-self-hosted-renovate.md) | Dependency updates come from self-hosted Renovate | ci |

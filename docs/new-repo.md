@@ -34,13 +34,18 @@ Optionally rename the Go module (`go mod edit -module` in `services/backend`, th
 2. In that project, create an OAuth 2.0 client ID for Google sign-in (see "Google Sign-In" in `services/frontend/README.md`) and set `google_client_id` in the root `terraform.tfvars`. Its authorized JavaScript origins are `http://localhost:5173` and both site URLs (the `frontend_hostnames`, or the `workers.dev` addresses).
 3. Create a GitHub fine-grained personal access token, scoped to the new repository only, with read and write access to:
 
-   | Permission | Used for |
-   | --- | --- |
-   | **Variables** | Terraform writes the repository variables the workflows read |
-   | **Contents** | release-please tags and publishes releases |
-   | **Pull requests** | release-please opens and updates the release PR |
+   | Permission | Access | Used for |
+   | --- | --- | --- |
+   | **Variables** | Read and write | Terraform writes the repository variables the workflows read |
+   | **Contents** | Read and write | release-please tags and publishes releases; Renovate pushes its branches |
+   | **Pull requests** | Read and write | release-please and Renovate open and update their PRs |
+   | **Workflows** | Read and write | Renovate updates `.github/workflows` and the composite actions |
+   | **Issues** | Read and write | Renovate's dependency dashboard and labels |
+   | **Commit statuses** | Read and write | Renovate's status checks |
 
-   One token serves all of them, and it is stored in Secret Manager as `github_provider_token`. A PR opened with the workflow's own token would not trigger the PR checks, which is why release-please uses this one: its release PRs are authored by whoever owns the token.
+   (Metadata read is added automatically.) One token serves all of them, and it is stored in Secret Manager as `github_provider_token`. A PR opened with the workflow's own token would not trigger the PR checks, which is why release-please and Renovate use this one: their PRs are authored by whoever owns the token. Only the deploy and renovate identities can read it. It holds Contents and Workflows write, so on a repository without branch protection it could push to `main`; keep it scoped to this one repository.
+
+   A fine-grained token expires. To rotate it, create a new one with the same permissions and add it as a new version of the `github_provider_token` secret (`gcloud secrets versions add github_provider_token --data-file=- --project=<prefix>-root`); the workflows read `latest`. Drop Issues and Commit statuses if you remove Renovate's dependency dashboard and status checks.
 4. Create a Cloudflare API token with **Account: Workers Scripts: Edit** (plus **Zone: Workers Routes: Edit**, **Zone: DNS: Edit** and **Zone: Zone: Read** on your zone, if you have a domain), and set your Cloudflare account id (not a secret) as `cloudflare_account_id` in the root `terraform.tfvars`.
 
 ## 4. Bootstrap the root

@@ -14,11 +14,12 @@ output "workload_identity_provider" {
 }
 
 output "github_service_accounts" {
-  description = "Emails of the GitHub Actions identities: plan (read-only), deploy (main, push-commit.yaml) and promote (main, prod). Also written to the *_SERVICE_ACCOUNT Actions variables."
+  description = "Emails of the GitHub Actions identities: plan (read-only), deploy (main, push-commit.yaml), promote (main, prod) and renovate. Also written to the *_SERVICE_ACCOUNT Actions variables."
   value = {
-    plan    = google_service_account.github_plan.email
-    deploy  = google_service_account.github_deploy.email
-    promote = google_service_account.github_promote.email
+    plan     = google_service_account.github_plan.email
+    deploy   = google_service_account.github_deploy.email
+    promote  = google_service_account.github_promote.email
+    renovate = google_service_account.github_renovate.email
   }
 }
 

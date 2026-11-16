@@ -31,7 +31,9 @@ jobs:
           cache: false # see pull-request.yaml's `changed` job for why
       - name: Install scanners
         run: |
+          # renovate: datasource=go depName=golang.org/x/vuln
           GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          # renovate: datasource=go depName=github.com/securego/gosec/v2
           GOBIN="$RUNNER_TEMP/bin" go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: govulncheck
@@ -63,8 +65,10 @@ jobs:
           cache: false # see pull-request.yaml's `changed` job for why
       - name: Install scanners
         run: |
+          # renovate: datasource=go depName=github.com/rhysd/actionlint
           GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          # renovate: datasource=pypi depName=zizmor
           pip install --user zizmor==1.32.0
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: actionlint
@@ -83,6 +87,7 @@ jobs:
           cache: false # see pull-request.yaml's `changed` job for why
       - name: Install tflint
         run: |
+          # renovate: datasource=go depName=github.com/terraform-linters/tflint
           GOBIN="$RUNNER_TEMP/bin" go install github.com/terraform-linters/tflint@v0.66.0
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: tflint
@@ -121,6 +126,7 @@ jobs:
           cache: false # see pull-request.yaml's `changed` job for why
       - name: Install gitleaks
         run: |
+          # renovate: datasource=go depName=github.com/gitleaks/gitleaks/v8
           GOBIN="$RUNNER_TEMP/bin" go install github.com/gitleaks/gitleaks/v8@v8.30.1
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
       - name: gitleaks

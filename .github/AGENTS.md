@@ -23,6 +23,10 @@ Workflows, composite actions, repository settings and the moon setup CI runs thr
 
 - `security.yaml` runs the scanners on PRs, weekly and on demand. They are advisory: findings go to the job summary and a warning, never fail a run, and none is a required check. Run each through `.github/scripts/advisory.sh` so a scanner that can't run still fails, and pin its version ([33](../docs/decisions/0033-advisory-security-scanning.md)).
 
+### Dependency updates
+
+- Renovate (`renovate.yaml`, `.github/renovate.json5`) opens one grouped PR per ecosystem, weekly, with the `github_provider_token` PAT; Dependabot alerts stay on, its version updates are off. A pin Renovate wouldn't see carries a `# renovate: datasource=... depName=...` comment on the line above; a version repeated across files is read from `.prototools` instead of copied ([34](../docs/decisions/0034-self-hosted-renovate.md)).
+
 ### Versioning
 
 - release-please computes versions from Conventional Commit subjects; tags are plain `vMAJOR.MINOR.PATCH`. Its config and manifest live in `.github/`, and `CHANGELOG.md` at the root is its output ([30](../docs/decisions/0030-releases-from-release-please.md)).

@@ -63,12 +63,13 @@ The plan job posts its output as a PR comment. Read it:
 - **`mergeable_state: blocked` on a green PR is expected.** Claude Code pushes and opens PRs as the repository owner, and GitHub never lets an author approve their own PR, so the owner merges with the admin override (`enforce_admins: false`). Don't investigate it, and never propose dropping `required_pull_request_reviews`.
 - **`required_conversation_resolution`**: resolve every thread you've addressed, and reply on any you're not changing.
 
-## Dependabot PRs
+## Dependency PRs
 
-`build(deps)` PRs come grouped per ecosystem (`gomod-deps`, `npm-deps`, `terraform-deps`, `ci-deps`):
-- Go: if the bump moves `go.mod`'s `go` line, `root:go-version-sync` fails. Bump `.prototools` and the `Dockerfile` image in the same PR.
-- `oapi-codegen` (Go tool in `go.mod`) or `openapi-typescript` (`packages/api/package.json`): run `moon run packages/api:generate` and commit the output, or `api-drift` fails.
+`build(deps)` PRs come from Renovate (`.github/renovate.json5`), grouped per ecosystem (`ci-deps`, `terraform-deps`, `npm-deps`, `api-tool-deps`, `gomod-deps`, `docker-deps`, `tool-deps`, plus `go toolchain` and `terraform version` for pins that live in several files):
+- Go: if the bump moves `go.mod`'s `go` line, `root:go-version-sync` fails. The `go toolchain` group moves `.prototools`, `go.mod` and the `Dockerfile` image together; if only some moved, fix the rest in the same PR.
+- `oapi-codegen` (a `go tool` in `go.mod`) or `openapi-typescript` (`packages/api/package.json`): run `moon run packages/api:generate` and commit the output, or `api-drift` fails.
 - Terraform providers: the plan comment is the review. Read it for unexpected changes.
+- A pin carrying a `# renovate:` comment is bumped by Renovate's regex manager; keep the comment on the line above when you edit it.
 
 ## Never
 

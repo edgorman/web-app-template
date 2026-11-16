@@ -1,4 +1,4 @@
-# Three identities for GitHub Actions to authenticate to GCP as, without a long-lived JSON key, so
+# Four identities for GitHub Actions to authenticate to GCP as, without a long-lived JSON key, so
 # that a workflow edited on a pull request branch holds nothing that can write anywhere:
 #
 #   plan    read-only; assumable by any run in this repository, which is what the PR checks use.
@@ -6,6 +6,8 @@
 #           deploys, and reading the tokens release-please and Cloudflare need.
 #   promote promote-release.yaml and apply-infrastructure-prod.yaml as they exist on main: prod's
 #           apply and deploy. Only prod's project, state bucket and the Cloudflare token.
+#   renovate renovate.yaml as it exists on main: it reads the GitHub PAT and nothing else, because
+#           it runs a third-party action.
 #
 # The apply identities are bound on the workflow file and the ref it is loaded from (the
 # job_workflow_ref claim, e.g. <repo>/.github/workflows/push-commit.yaml@refs/heads/main), which a
@@ -26,6 +28,12 @@ resource "google_service_account" "github_deploy" {
   project      = var.gcp_provider_project_id
   account_id   = "github-deploy"
   display_name = "GitHub Actions - deploy (main, push-commit.yaml)"
+}
+
+resource "google_service_account" "github_renovate" {
+  project      = var.gcp_provider_project_id
+  account_id   = "github-renovate"
+  display_name = "GitHub Actions - Renovate (main)"
 }
 
 resource "google_service_account" "github_promote" {
@@ -146,7 +154,13 @@ resource "google_service_account_iam_member" "github_plan_wif" {
   member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.repository/${local.repository}"
 }
 
-# Deploy and promote: only the named workflow files as they exist on main.
+# Deploy, promote and Renovate: only the named workflow files as they exist on main.
+resource "google_service_account_iam_member" "github_renovate_wif" {
+  service_account_id = google_service_account.github_renovate.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_pool.name}/attribute.job_workflow_ref/${local.repository}/.github/workflows/renovate.yaml@refs/heads/main"
+}
+
 resource "google_service_account_iam_member" "github_deploy_wif" {
   for_each = toset(["push-commit.yaml"])
 
@@ -172,6 +186,7 @@ locals {
     PLAN_SERVICE_ACCOUNT       = google_service_account.github_plan.email
     DEPLOY_SERVICE_ACCOUNT     = google_service_account.github_deploy.email
     PROMOTE_SERVICE_ACCOUNT    = google_service_account.github_promote.email
+    RENOVATE_SERVICE_ACCOUNT   = google_service_account.github_renovate.email
     # Not a secret: it appears in the Cloudflare dashboard's URLs. frontend-deploy passes it to wrangler.
     CLOUDFLARE_ACCOUNT_ID = var.cloudflare_account_id
     # One client ID for every environment: passed to infrastructure/env as TF_VAR_google_client_id
