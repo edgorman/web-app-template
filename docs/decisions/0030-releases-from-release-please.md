@@ -1,6 +1,6 @@
 # 30. Releases come from release-please
 
-Status: Accepted (supersedes [16](0016-pre-release-gates.md) and [18](0018-versions-from-conventional-commits.md); amends [15](0015-build-once-promote-by-sha.md), [17](0017-manual-prod-infrastructure-apply.md) and [25](0025-apply-saved-plans.md))
+Status: Accepted (supersedes [16](0016-pre-release-gates.md) and [18](0018-versions-from-conventional-commits.md); amends [15](0015-build-once-promote-by-sha.md) and [17](0017-manual-prod-infrastructure-apply.md))
 
 ## Context
 

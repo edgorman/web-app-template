@@ -156,7 +156,6 @@ jobs:
         with:
           terraform_directory: 'infrastructure/root'
           config_directory: 'infrastructure/config/root'
-          plan_dir: gs://${{ vars.GCP_ROOT_PROJECT }}-terraform-state/plans/root
           secrets: ${{ steps.secrets.outputs.secrets }}
 
   # Waits on infrastructure-root so any IAM grants or API enablement it applies land first.
@@ -182,7 +181,6 @@ jobs:
         with:
           terraform_directory: 'infrastructure/env'
           config_directory: 'infrastructure/config/staging'
-          plan_dir: gs://${{ vars.GCP_PROJECT_PREFIX }}-stag-terraform-state/plans/staging
           # One client ID, defined in infrastructure/root, serves every environment.
           secrets: |
             TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
@@ -300,7 +298,7 @@ jobs:
           manifest-file: .github/.release-please-manifest.json
 
   # The prod Terraform plan for the open release PR, posted on it so a reviewer sees what merging
-  # will apply. Read-only (-lock=false), and re-planned when the release is promoted (decision 25).
+  # will apply. Read-only (-lock=false), and re-planned when the release is promoted (decision 31).
   plan-prod:
     needs: release-please
     if: needs.release-please.outputs.pr_number != '' && needs.release-please.outputs.release_created != 'true'

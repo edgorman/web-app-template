@@ -30,9 +30,10 @@ These records came with the template. They hold for any repository made from it 
 | [22](0022-artifact-retention.md) | Artifact retention keeps recent merges and every release | infrastructure |
 | [23](0023-monitoring-on-cloud-run-metrics.md) | Monitoring watches Cloud Run's own metrics | infrastructure |
 | [24](0024-debug-endpoint-contract.md) | The debug endpoint contract | backend |
-| [25](0025-apply-saved-plans.md) | Applies use the plan already shown | ci |
+| [25](0025-apply-saved-plans.md) | Applies use the plan already shown | ci (superseded by 31) |
 | [26](0026-build-only-what-changed.md) | Build only what changed, reuse the rest | ci (superseded by 29) |
 | [27](0027-artifact-stores-in-root.md) | Artifact stores are created by root, not by each environment | infrastructure |
 | [28](0028-openapi-is-the-api-contract.md) | OpenAPI is the API contract | api |
 | [29](0029-build-every-merge.md) | Build every merge | ci |
 | [30](0030-releases-from-release-please.md) | Releases come from release-please | ci |
+| [31](0031-replan-at-apply.md) | Applies re-plan instead of applying a saved plan | ci |

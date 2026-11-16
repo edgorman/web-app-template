@@ -8,7 +8,7 @@ Workflows, composite actions, repository settings and the moon setup CI runs thr
 - Every job that needs GCP or Cloudflare is skipped while `vars.WORKLOAD_IDENTITY_PROVIDER` is empty (the `changed` jobs and `promote-release.yaml`'s `target` job carry the `if:`, and everything else needs them), so a repository made from the template runs only PR checks until its root bootstrap ([20](../docs/decisions/0020-workload-identity-federation.md)).
 - Every pipeline has an environment-scoped concurrency group.
 - Shared steps live in composite actions under `.github/actions/`.
-- Applies run the saved plan for their tree from `plans/<env>/` in the state bucket, falling back to planning on the spot when it is missing or stale. Pass `plan_dir` to both Terraform actions; never save a plan as a workflow artifact ([25](../docs/decisions/0025-apply-saved-plans.md)).
+- Every apply plans and applies in its own job, from the commit it runs for; nothing reads a plan another job wrote. The PR comment is the reviewed reference, and each apply shows its plan in the job summary ([31](../docs/decisions/0031-replan-at-apply.md)).
 
 ### Building with moon
 

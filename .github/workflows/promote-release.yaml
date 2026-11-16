@@ -75,7 +75,6 @@ jobs:
         with:
           terraform_directory: 'infrastructure/env'
           config_directory: 'infrastructure/config/prod'
-          plan_dir: gs://${{ vars.GCP_PROJECT_PREFIX }}-prod-terraform-state/plans/prod
           # One client ID, defined in infrastructure/root, serves every environment.
           secrets: |
             TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
