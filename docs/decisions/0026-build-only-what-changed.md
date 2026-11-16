@@ -1,6 +1,6 @@
 # 26. Build only what changed, reuse the rest
 
-Status: Accepted (amends [15](0015-build-once-promote-by-sha.md))
+Status: Superseded by [29](0029-build-every-merge.md)
 
 ## Context
 
