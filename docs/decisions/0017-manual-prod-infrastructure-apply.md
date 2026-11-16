@@ -12,4 +12,4 @@ Staging applies on every merge, prod only on promotion, so prod state can lag `m
 
 ## Consequences
 
-It is not the normal path. Prod infrastructure changes through a promotion, whose plan was visible in the pre-release notes. Use this only to backfill a new per-environment resource a merge is about to depend on, and say so in that PR.
+It is not the normal path. Prod infrastructure changes through a promotion, whose plan was visible on the release PR. Use this only to backfill a new per-environment resource a merge is about to depend on, and say so in that PR.

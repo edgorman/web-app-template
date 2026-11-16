@@ -70,7 +70,7 @@ Two project skills in `.claude/skills/` cover issue to merged PR: `implement-iss
 - **No hand-written wire types.** No `export interface` in `api.ts`, no `json:"..."` tags in `internal/service`; CI enforces both (`packages/api/AGENTS.md`).
 - **Every new resource or action needs a line in the access policy table** (`services/backend/internal/entity/access.go`); an undeclared pair is refused (`services/backend/AGENTS.md`).
 - **Images and bundles are never rebuilt for production.** Prod deploys the commit-SHA artifact already in its own store (`.github/AGENTS.md`).
-- **Never add a manifest at the repository root** (Repository Structure above).
+- **Never add a manifest at the repository root** (Repository Structure above). `CHANGELOG.md`, which release-please maintains, is not one.
 - **Never add a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` anywhere.** One such file makes Claude Code ignore every `AGENTS.md`; put instructions in the `AGENTS.md` of the directory they apply to.
 - **Reasoning goes in a decision record, not an `AGENTS.md`.** Add a rule as a bullet linking to its record; supersede a record with a new one rather than rewriting it ([`docs/decisions/`](docs/decisions/README.md)).
 

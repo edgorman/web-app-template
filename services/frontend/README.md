@@ -114,7 +114,7 @@ environment.
 
 `SMOKE_BASE_URL=<site> npx playwright test` runs the post-deploy smoke test in `e2e/` against a live
 site, signed out and read-only (CI passes the staging URL). `push-commit.yaml`'s
-`smoke` job runs it after every staging deploy, and `pre-release` waits on it. Its files are named
+`smoke` job runs it after every staging deploy, and `release-please` waits on it. Its files are named
 `*.e2e.ts` so `npm test` never picks them up; first run `npx playwright install chromium` outside a
 Claude Code cloud session, which has one preinstalled.
 

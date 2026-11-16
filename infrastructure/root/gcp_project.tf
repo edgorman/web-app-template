@@ -67,7 +67,7 @@ resource "google_storage_bucket" "gcp_project_terraform_states" {
   }
 
   # Saved plans (.github/actions/terraform-pull-request) live under plans/. 90 days covers the
-  # frontend retention window, past which a pre-release can't be promoted anyway; replaced or
+  # frontend retention window, past which a release can't be promoted anyway; replaced or
   # deleted plan versions go a week later. State objects are outside the prefix.
   lifecycle_rule {
     condition {

@@ -5,7 +5,7 @@ Workflows, composite actions, repository settings and the moon setup CI runs thr
 ## CI/CD, Branching, & Release Lifecycle
 
 - Everything builds, tests and deploys through GitHub Actions; infrastructure applies before services update.
-- Every job that needs GCP or Cloudflare is skipped while `vars.WORKLOAD_IDENTITY_PROVIDER` is empty (the `changed` jobs and `promote-release.yaml`'s first job carry the `if:`, and everything else needs them), so a repository made from the template runs only PR checks until its root bootstrap ([20](../docs/decisions/0020-workload-identity-federation.md)).
+- Every job that needs GCP or Cloudflare is skipped while `vars.WORKLOAD_IDENTITY_PROVIDER` is empty (the `changed` jobs and `promote-release.yaml`'s `target` job carry the `if:`, and everything else needs them), so a repository made from the template runs only PR checks until its root bootstrap ([20](../docs/decisions/0020-workload-identity-federation.md)).
 - Every pipeline has an environment-scoped concurrency group.
 - Shared steps live in composite actions under `.github/actions/`.
 - Applies run the saved plan for their tree from `plans/<env>/` in the state bucket, falling back to planning on the spot when it is missing or stale. Pass `plan_dir` to both Terraform actions; never save a plan as a workflow artifact ([25](../docs/decisions/0025-apply-saved-plans.md)).
@@ -21,21 +21,22 @@ Workflows, composite actions, repository settings and the moon setup CI runs thr
 
 ### Versioning
 
-- Versions are computed from Conventional Commit subjects; tags are plain `major.minor.patch`, with pre-release as GitHub's flag ([18](../docs/decisions/0018-versions-from-conventional-commits.md)).
+- release-please computes versions from Conventional Commit subjects; tags are plain `vMAJOR.MINOR.PATCH`. Its config and manifest live in `.github/`, and `CHANGELOG.md` at the root is its output ([30](../docs/decisions/0030-releases-from-release-please.md)).
 
 ### Staging Deployments
 
 - Every merge publishes the backend image and the frontend `dist/` by commit SHA to both staging's and prod's stores ([15](../docs/decisions/0015-build-once-promote-by-sha.md)). Both are built on every merge, with a layer cache for the image and an npm cache for the bundle; nothing is reused from an earlier commit ([29](../docs/decisions/0029-build-every-merge.md)). An image whose digest the service already runs isn't redeployed.
 - The frontend bundle carries nothing environment-specific; `config.json` is written at deploy time ([15](../docs/decisions/0015-build-once-promote-by-sha.md)).
 
-### Pre-Release Generation
+### Release PR
 
-- `pre-release` runs on every merge, checks each direct need for `success` (`services-backend`, a matrix over the images, `services-frontend`, `smoke`, `version`), and takes its tag from `version` ([16](../docs/decisions/0016-pre-release-gates.md)).
-- The prod plan in a pre-release runs with `-lock=false` ([16](../docs/decisions/0016-pre-release-gates.md)).
+- `release-please` runs after every merge, checks each direct need for `success` (`services-backend`, a matrix over the images, `services-frontend`, `smoke`), and opens or updates the release PR; a new job a release depends on goes in both its `needs` and its `if:` ([30](../docs/decisions/0030-releases-from-release-please.md)).
+- It runs with the `github_provider_token` PAT, because a PR opened with `GITHUB_TOKEN` would not trigger the PR checks ([30](../docs/decisions/0030-releases-from-release-please.md)).
+- `plan-prod` posts the prod plan, run with `-lock=false`, on the release PR.
 
 ### Production Releases
 
-- Promotion applies prod Terraform, then deploys the backend and the frontend by commit SHA from prod's own stores. Never rebuild for production, and never copy between projects ([15](../docs/decisions/0015-build-once-promote-by-sha.md)).
+- Merging the release PR promotes it: `release-please` tags the release and `promote` calls `promote-release.yaml`, which applies prod Terraform, then deploys the backend and the frontend by commit SHA from prod's own stores. Never rebuild for production, and never copy between projects ([15](../docs/decisions/0015-build-once-promote-by-sha.md)).
 - The `release-<version>` image tag is for retention only; deploy by SHA ([22](../docs/decisions/0022-artifact-retention.md)).
-- Rollback is promoting an earlier release tag ([15](../docs/decisions/0015-build-once-promote-by-sha.md)).
+- Rollback is `promote-release.yaml` run by hand (`workflow_dispatch`) with an earlier release tag; so is finishing a promotion whose deploy failed ([30](../docs/decisions/0030-releases-from-release-please.md)).
 - `apply-infrastructure-prod.yaml` is only for backfilling a new per-environment resource a merge depends on; say so in that PR ([17](../docs/decisions/0017-manual-prod-infrastructure-apply.md)).

@@ -2,9 +2,9 @@ name: 'Apply Prod Infrastructure (Manual)'
 
 # This is an escape hatch, not the normal path. Prod infrastructure is meant to change through
 # Promote Release (`promote-release.yaml`), where a `terraform apply` on `the prod project`
-# runs as step 1 of promoting a specific, already-reviewed pre-release - so infra always lands
-# alongside a deliberate decision to ship a commit, with the accumulated plan visible in that
-# pre-release's notes first. This workflow exists only to backfill a newly-added per-environment
+# runs as step 1 of promoting a specific, already-reviewed release - so infra always lands
+# alongside a deliberate decision to ship a commit, with the accumulated plan visible on the
+# release PR first. This workflow exists only to backfill a newly-added per-environment
 # resource (a bucket, a registry, an IAM binding, ...) into prod ahead of that, for the narrow case
 # where `infrastructure/env` gained something new that a merge-time job now assumes already exists
 # in prod - the trunk-based model's staging-applies-on-merge / prod-applies-on-promotion split means

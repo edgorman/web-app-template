@@ -32,7 +32,15 @@ Optionally rename the Go module (`go mod edit -module` in `services/backend`, th
 
 1. Create the GCP project `<prefix>-root` by hand and link it to your billing account. Everything else is created by Terraform.
 2. In that project, create an OAuth 2.0 client ID for Google sign-in (see "Google Sign-In" in `services/frontend/README.md`) and set `google_client_id` in the root `terraform.tfvars`. Its authorized JavaScript origins are `http://localhost:5173` and both site URLs (the `frontend_hostnames`, or the `workers.dev` addresses).
-3. Create a GitHub fine-grained personal access token for the new repository with read and write access to **Variables**.
+3. Create a GitHub fine-grained personal access token, scoped to the new repository only, with read and write access to:
+
+   | Permission | Used for |
+   | --- | --- |
+   | **Variables** | Terraform writes the repository variables the workflows read |
+   | **Contents** | release-please tags and publishes releases |
+   | **Pull requests** | release-please opens and updates the release PR |
+
+   One token serves all of them, and it is stored in Secret Manager as `github_provider_token`. A PR opened with the workflow's own token would not trigger the PR checks, which is why release-please uses this one: its release PRs are authored by whoever owns the token.
 4. Create a Cloudflare API token with **Account: Workers Scripts: Edit** (plus **Zone: Workers Routes: Edit**, **Zone: DNS: Edit** and **Zone: Zone: Read** on your zone, if you have a domain), and note your Cloudflare account id.
 
 ## 4. Bootstrap the root
@@ -54,7 +62,7 @@ Commit steps 1-3's edits on a branch and open a pull request. Now that the varia
 
 ## 6. Staging deploys
 
-The merge applies staging's infrastructure, builds and deploys the backend and frontend, runs the smoke test against `STAGING_URL`, and cuts a pre-release. The first prod deploy is promoting that pre-release to a release (see `.github/AGENTS.md`).
+The merge applies staging's infrastructure, builds and deploys the backend and frontend, runs the smoke test against `STAGING_URL`, and then release-please opens a release PR (the first `feat:` or `fix:` since the repository began). Merging that PR cuts the first release and deploys it to production (see `.github/AGENTS.md`).
 
 ## 7. Make it yours
 

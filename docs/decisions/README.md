@@ -21,9 +21,9 @@ These records came with the template. They hold for any repository made from it 
 | [13](0013-deploy-markers.md) | Deploy decisions come from marker tasks | ci |
 | [14](0014-prototools-pins-the-toolchain.md) | `.prototools` is the single source of tool versions | ci |
 | [15](0015-build-once-promote-by-sha.md) | Build once, promote by commit SHA | ci |
-| [16](0016-pre-release-gates.md) | What a pre-release waits for | ci |
+| [16](0016-pre-release-gates.md) | What a pre-release waits for | ci (superseded by 30) |
 | [17](0017-manual-prod-infrastructure-apply.md) | A manual prod apply, for bootstrapping only | ci |
-| [18](0018-versions-from-conventional-commits.md) | Versions come from Conventional Commit subjects | ci |
+| [18](0018-versions-from-conventional-commits.md) | Versions come from Conventional Commit subjects | ci (superseded by 30) |
 | [19](0019-one-gcp-project-per-environment.md) | One GCP project per environment, plus a root | infrastructure |
 | [20](0020-workload-identity-federation.md) | CI authenticates with Workload Identity Federation | infrastructure |
 | [21](0021-per-environment-artifact-stores.md) | Each environment has its own artifact stores | infrastructure |
@@ -35,3 +35,4 @@ These records came with the template. They hold for any repository made from it 
 | [27](0027-artifact-stores-in-root.md) | Artifact stores are created by root, not by each environment | infrastructure |
 | [28](0028-openapi-is-the-api-contract.md) | OpenAPI is the API contract | api |
 | [29](0029-build-every-merge.md) | Build every merge | ci |
+| [30](0030-releases-from-release-please.md) | Releases come from release-please | ci |

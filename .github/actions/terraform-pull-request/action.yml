@@ -15,6 +15,10 @@ inputs:
   github_token:
     description: 'GitHub token for posting comments'
     required: true
+  pull_request_number:
+    description: 'Pull request to post the plan on, for a run that is not itself a pull_request event (the release PR''s prod plan). Omit to comment on the triggering pull request.'
+    required: false
+    default: ''
   plan_dir:
     description: 'gs:// directory to save the binary plan under, named by the checkout''s git tree hash, for terraform-push-commit to apply later. Omit to keep the plan local.'
     required: false
@@ -88,7 +92,7 @@ runs:
 
     # A merge_group run has no PR to comment on; the plan above still has to succeed.
     - name: Post Terraform Plan Comment
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' || inputs.pull_request_number != ''
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       with:
         github-token: ${{ inputs.github_token }}
@@ -120,7 +124,7 @@ runs:
           *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ inputs.terraform_directory }}\`, Workflow: \`${{ github.workflow }}\`*`;
 
           await github.rest.issues.createComment({
-            issue_number: context.issue.number,
+            issue_number: Number('${{ inputs.pull_request_number }}') || context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
             body: output

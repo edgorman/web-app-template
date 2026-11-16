@@ -21,10 +21,10 @@ A GitHub template for a small, cloud-deployed full-stack web app: a trunk-based 
 | `services/frontend` | Vite/React single-page app, deployed to Cloudflare Workers as static assets |
 | `packages/api` | OpenAPI API contract; `moon run packages/api:generate` writes the Go server code and the TypeScript types |
 | `infrastructure` | Terraform for the shared root, staging and prod environments (GCP, Cloudflare, GitHub) |
-| `.github` | Workflows and composite actions: PR checks, staging deploy on merge, release promotion to prod |
+| `.github` | Workflows and composite actions: PR checks, staging deploy on merge, release PR and promotion to prod |
 | `docs/decisions` | Why things are the way they are, one decision per file |
 
-Every merge to `main` deploys to staging; production releases are promoted from there. Nothing is ever applied or deployed by hand.
+Every merge to `main` deploys to staging; production releases are cut by merging release-please's release PR. Nothing is ever applied or deployed by hand.
 
 ## Developing with moon
 
