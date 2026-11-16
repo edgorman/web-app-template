@@ -7,10 +7,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	fs "cloud.google.com/go/firestore"
@@ -32,14 +36,19 @@ func main() {
 	// Logging as structured JSON with a severity (see internal/logging).
 	slog.SetDefault(slog.New(logging.NewHandler(os.Stdout)))
 
+	// Cloud Run sends SIGTERM when it replaces or scales in an instance, then SIGKILL after 10
+	// seconds; cancelling this context is what starts the drain in serve.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+
 	// run() owns the deferred cleanup; exiting from inside it would skip that via os.Exit.
-	if err := run(); err != nil {
+	if err := run(ctx); err != nil {
 		slog.Error("backend stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run(ctx context.Context) error {
 	environment := envOr("ENVIRONMENT", "development")
 	port := envOr("PORT", "8080")
 
@@ -47,8 +56,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-
-	ctx := context.Background()
 
 	client, err := fs.NewClient(ctx, fs.DetectProjectID)
 	if err != nil {
@@ -82,8 +89,40 @@ func run() error {
 		IdleTimeout:       2 * time.Minute,
 	}
 
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		return err
+	}
 	slog.Info("backend listening", "port", port, "environment", environment, "commit", commit)
-	return server.ListenAndServe()
+	return serve(ctx, server, listener, drainTimeout)
+}
+
+// drainTimeout is how long in-flight requests get to finish after SIGTERM: under the 10 seconds
+// Cloud Run allows before it kills the instance.
+const drainTimeout = 8 * time.Second
+
+// serve runs server on listener until it fails or ctx is cancelled, then stops accepting
+// connections and waits up to drain for requests in flight. A clean shutdown returns nil.
+func serve(ctx context.Context, server *http.Server, listener net.Listener, drain time.Duration) error {
+	failed := make(chan error, 1)
+	go func() { failed <- server.Serve(listener) }()
+
+	select {
+	case err := <-failed:
+		return err
+	case <-ctx.Done():
+	}
+
+	slog.Info("backend shutting down")
+	drainCtx, cancel := context.WithTimeout(context.Background(), drain)
+	defer cancel()
+	if err := server.Shutdown(drainCtx); err != nil {
+		return err
+	}
+	if err := <-failed; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
 
 // tokenVerifier picks how ID tokens are checked. DEV_AUTH swaps Google sign-in for fixed development
