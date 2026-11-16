@@ -41,6 +41,8 @@ All seven jobs of `.github/workflows/pull-request.yaml` and both jobs of `.githu
 | `changed` | `moon query affected` failed | A `moon.yml` is invalid. `MOON_BASE=origin/main moon query affected` reproduces it |
 | `infrastructure-{root,staging,prod}` | `terraform init/fmt/validate/plan` with real credentials | See below |
 
+**The `security.yaml` scanners are advisory.** They never fail a run and are not required checks. Read their job summaries (and warning annotations) for what they found, and mention anything relevant to the diff in the PR; don't treat a finding as a CI failure (`docs/decisions/0033-advisory-security-scanning.md`).
+
 **Toolchain errors are not test failures.** `proto-shim: ... Permission denied (os error 13)` is the known toolchain cache bug that `cache: false` works around in every job. If it shows up anyway, it failed before any task ran, so one re-run is allowed.
 
 ## Infrastructure plans

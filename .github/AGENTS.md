@@ -19,6 +19,10 @@ Workflows, composite actions, repository settings and the moon setup CI runs thr
 - Pin tool versions only in `.prototools`; keep its `go` pin, `go.mod` and the Dockerfile image in step ([14](../docs/decisions/0014-prototools-pins-the-toolchain.md)).
 - No remote cache ([11](../docs/decisions/0011-moon-not-pants.md)).
 
+### Security scanning
+
+- `security.yaml` runs the scanners on PRs, weekly and on demand. They are advisory: findings go to the job summary and a warning, never fail a run, and none is a required check. Run each through `.github/scripts/advisory.sh` so a scanner that can't run still fails, and pin its version ([33](../docs/decisions/0033-advisory-security-scanning.md)).
+
 ### Versioning
 
 - release-please computes versions from Conventional Commit subjects; tags are plain `vMAJOR.MINOR.PATCH`. Its config and manifest live in `.github/`, and `CHANGELOG.md` at the root is its output ([30](../docs/decisions/0030-releases-from-release-please.md)).
