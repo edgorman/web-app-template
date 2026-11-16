@@ -8,6 +8,9 @@ gcp_projects            = ["stag", "prod"]
 github_repository_owner = "your-github-user"
 github_repository_name  = "your-repo"
 
+# Cloudflare dashboard > Workers & Pages, in the sidebar or the URL. Not a secret.
+cloudflare_account_id = "your-cloudflare-account-id"
+
 site_name = "My App"
 # No custom domain: the frontends are served at https://myapp-stag.<your-account>.workers.dev and
 # https://myapp-prod.<your-account>.workers.dev. To add one, set cloudflare_zone and frontend_hostnames, e.g.
@@ -20,9 +23,8 @@ site_name = "My App"
 # browser's network tab regardless.
 google_client_id = ""
 
-# The following are sensitive/unknown initially and thus have no default
+# The following are sensitive and thus have no default
 # github_provider_token
-# cloudflare_account_id
 # cloudflare_api_token
 # — pass them at apply time, e.g.:
-#   TF_VAR_github_provider_token=<PAT> TF_VAR_cloudflare_account_id=<ID> TF_VAR_cloudflare_api_token=<TOK> make init
+#   TF_VAR_github_provider_token=<PAT> TF_VAR_cloudflare_api_token=<TOK> make init

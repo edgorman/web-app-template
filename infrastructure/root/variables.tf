@@ -43,12 +43,12 @@ variable "github_repository_name" {
 }
 
 variable "cloudflare_account_id" {
-  description = "The id of the Cloudflare account"
+  description = "The id of the Cloudflare account. Not a secret (it is in the dashboard's URLs), so it is set in terraform.tfvars and written to the CLOUDFLARE_ACCOUNT_ID Actions variable."
   type        = string
 }
 
 variable "cloudflare_api_token" {
-  description = "API token granting CI/CD access to the Cloudflare account. Passed by hand at bootstrap only; CI sources it from Secret Manager after (see gcp_secret.tf)."
+  description = "API token granting CI/CD access to the Cloudflare account. Passed by hand at bootstrap only; deploy and promote source it from Secret Manager after (see gcp_secret.tf)."
   type        = string
   sensitive   = true
 }

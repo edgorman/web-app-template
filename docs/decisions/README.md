@@ -25,7 +25,7 @@ These records came with the template. They hold for any repository made from it 
 | [17](0017-manual-prod-infrastructure-apply.md) | A manual prod apply, for bootstrapping only | ci |
 | [18](0018-versions-from-conventional-commits.md) | Versions come from Conventional Commit subjects | ci (superseded by 30) |
 | [19](0019-one-gcp-project-per-environment.md) | One GCP project per environment, plus a root | infrastructure |
-| [20](0020-workload-identity-federation.md) | CI authenticates with Workload Identity Federation | infrastructure |
+| [20](0020-workload-identity-federation.md) | CI authenticates with Workload Identity Federation | infrastructure (superseded by 32) |
 | [21](0021-per-environment-artifact-stores.md) | Each environment has its own artifact stores | infrastructure |
 | [22](0022-artifact-retention.md) | Artifact retention keeps recent merges and every release | infrastructure |
 | [23](0023-monitoring-on-cloud-run-metrics.md) | Monitoring watches Cloud Run's own metrics | infrastructure |
@@ -37,3 +37,4 @@ These records came with the template. They hold for any repository made from it 
 | [29](0029-build-every-merge.md) | Build every merge | ci |
 | [30](0030-releases-from-release-please.md) | Releases come from release-please | ci |
 | [31](0031-replan-at-apply.md) | Applies re-plan instead of applying a saved plan | ci |
+| [32](0032-separate-plan-and-apply-identities.md) | Plan and apply authenticate as separate identities | infrastructure |

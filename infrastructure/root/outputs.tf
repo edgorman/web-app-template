@@ -13,9 +13,13 @@ output "workload_identity_provider" {
   value       = google_iam_workload_identity_pool_provider.github_provider.name
 }
 
-output "github_actions_service_account_email" {
-  description = "Email of the GitHub Actions service account (also written to the SERVICE_ACCOUNT Actions variable)"
-  value       = google_service_account.github_actions.email
+output "github_service_accounts" {
+  description = "Emails of the GitHub Actions identities: plan (read-only), deploy (main, push-commit.yaml) and promote (main, prod). Also written to the *_SERVICE_ACCOUNT Actions variables."
+  value = {
+    plan    = google_service_account.github_plan.email
+    deploy  = google_service_account.github_deploy.email
+    promote = google_service_account.github_promote.email
+  }
 }
 
 output "frontend_workers_dev_urls" {

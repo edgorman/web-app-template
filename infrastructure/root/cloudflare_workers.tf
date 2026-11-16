@@ -2,14 +2,6 @@
 # inputs in push-commit.yaml / promote-release.yaml. Terraform creates the Worker and its domains;
 # wrangler (services/frontend/wrangler.jsonc, frontend-deploy) only uploads versions of it. Each is
 # served at its workers.dev address, plus a custom domain for every entry in frontend_hostnames.
-data "cloudflare_zone" "site" {
-  count = var.cloudflare_zone == "" ? 0 : 1
-
-  filter = {
-    name = var.cloudflare_zone
-  }
-}
-
 resource "cloudflare_worker" "frontend" {
   for_each = toset(var.gcp_projects)
 
@@ -26,7 +18,7 @@ resource "cloudflare_workers_custom_domain" "frontend" {
   for_each = var.frontend_hostnames
 
   account_id = var.cloudflare_account_id
-  zone_id    = data.cloudflare_zone.site[0].id
+  zone_name  = var.cloudflare_zone
   hostname   = each.value
   service    = cloudflare_worker.frontend[each.key].name
 }

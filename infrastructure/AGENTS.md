@@ -12,9 +12,11 @@ Terraform roots: `env` (applied per environment from `config/staging` and `confi
 
 ### IAM & Authentication
 
-- CI authenticates with Workload Identity Federation. No JSON keys, and roles are granted per project, never at org level ([20](../docs/decisions/0020-workload-identity-federation.md)).
-- Workflows read the WIF provider, service account, project ids, region and site URLs from repository variables written by root; never hardcode them, and add a new one to `github_cicd.tf`'s `actions_variables` ([20](../docs/decisions/0020-workload-identity-federation.md)).
-- The GitHub PAT lives in Secret Manager (`github_provider_token`), never in a GitHub secret ([20](../docs/decisions/0020-workload-identity-federation.md)).
+- CI authenticates with Workload Identity Federation. No JSON keys, and roles are granted per project, never at org level ([32](../docs/decisions/0032-separate-plan-and-apply-identities.md)).
+- Three identities, none holding more than its job needs: `github-plan` (read-only, any run in the repository, used by the PR checks), `github-deploy` (`push-commit.yaml` on `main`) and `github-promote` (`promote-release.yaml` and `apply-infrastructure-prod.yaml` on `main`, prod only). A workflow picks its identity from `PLAN_`, `DEPLOY_` or `PROMOTE_SERVICE_ACCOUNT`, and a new workflow that needs an apply identity is added to its `workloadIdentityUser` binding in `github_cicd.tf` ([32](../docs/decisions/0032-separate-plan-and-apply-identities.md)).
+- Nothing the plan identity can read may be a credential: PR plans use placeholder tokens and `-refresh=false`, and the plan identity has no Secret Manager access ([32](../docs/decisions/0032-separate-plan-and-apply-identities.md)).
+- Workflows read the WIF provider, service accounts, project ids, region and site URLs from repository variables written by root; never hardcode them, and add a new one to `github_cicd.tf`'s `actions_variables` ([32](../docs/decisions/0032-separate-plan-and-apply-identities.md)).
+- The GitHub PAT and the Cloudflare token live in Secret Manager (`github_provider_token`, `cloudflare_api_token`), never in a GitHub secret, and are readable only by the identities that apply ([32](../docs/decisions/0032-separate-plan-and-apply-identities.md)).
 
 ### Artifact Stores
 

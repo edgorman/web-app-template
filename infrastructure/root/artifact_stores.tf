@@ -77,7 +77,7 @@ resource "google_artifact_registry_repository_iam_member" "backend_github_action
   location   = each.value.location
   repository = each.value.name
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${google_service_account.github_actions.email}"
+  member     = "serviceAccount:${google_service_account.github_deploy.email}"
 }
 
 # One folder per commit SHA (that is its versioning; the bucket itself has none): CI writes the
@@ -115,5 +115,5 @@ resource "google_storage_bucket_iam_member" "frontend_github_actions_writer" {
 
   bucket = each.value.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.github_actions.email}"
+  member = "serviceAccount:${google_service_account.github_deploy.email}"
 }

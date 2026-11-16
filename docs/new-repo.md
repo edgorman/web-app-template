@@ -41,7 +41,7 @@ Optionally rename the Go module (`go mod edit -module` in `services/backend`, th
    | **Pull requests** | release-please opens and updates the release PR |
 
    One token serves all of them, and it is stored in Secret Manager as `github_provider_token`. A PR opened with the workflow's own token would not trigger the PR checks, which is why release-please uses this one: its release PRs are authored by whoever owns the token.
-4. Create a Cloudflare API token with **Account: Workers Scripts: Edit** (plus **Zone: Workers Routes: Edit**, **Zone: DNS: Edit** and **Zone: Zone: Read** on your zone, if you have a domain), and note your Cloudflare account id.
+4. Create a Cloudflare API token with **Account: Workers Scripts: Edit** (plus **Zone: Workers Routes: Edit**, **Zone: DNS: Edit** and **Zone: Zone: Read** on your zone, if you have a domain), and set your Cloudflare account id (not a secret) as `cloudflare_account_id` in the root `terraform.tfvars`.
 
 ## 4. Bootstrap the root
 
@@ -49,10 +49,10 @@ The only Terraform you ever run by hand. With `gcloud auth application-default l
 
 ```sh
 cd infrastructure/root
-TF_VAR_github_provider_token=<PAT> TF_VAR_cloudflare_account_id=<ID> TF_VAR_cloudflare_api_token=<TOKEN> make init
+TF_VAR_github_provider_token=<PAT> TF_VAR_cloudflare_api_token=<TOKEN> make init
 ```
 
-It creates the environment projects, the state buckets, each environment's artifact registry and frontend bucket, Workload Identity Federation for this repository, the Cloudflare Workers (and, with a domain, their custom domains, which create their own DNS records), stores the three credentials in Secret Manager, and writes the repository variables the workflows read (`WORKLOAD_IDENTITY_PROVIDER`, `SERVICE_ACCOUNT`, `GOOGLE_CLIENT_ID`, `GCP_ROOT_PROJECT`, `GCP_PROJECT_PREFIX`, `GCP_REGION`, `SITE_NAME`, `STAGING_URL`, `PRODUCTION_URL`). Then it moves its own state into the bucket it made.
+It creates the environment projects, the state buckets, each environment's artifact registry and frontend bucket, Workload Identity Federation for this repository, the Cloudflare Workers (and, with a domain, their custom domains, which create their own DNS records), stores the two tokens in Secret Manager, and writes the repository variables the workflows read (`WORKLOAD_IDENTITY_PROVIDER`, `PLAN_SERVICE_ACCOUNT`, `DEPLOY_SERVICE_ACCOUNT`, `PROMOTE_SERVICE_ACCOUNT`, `CLOUDFLARE_ACCOUNT_ID`, `GOOGLE_CLIENT_ID`, `GCP_ROOT_PROJECT`, `GCP_PROJECT_PREFIX`, `GCP_REGION`, `SITE_NAME`, `STAGING_URL`, `PRODUCTION_URL`). Then it moves its own state into the bucket it made.
 
 Without a domain, check `terraform output frontend_workers_dev_urls` and use those addresses in `backend_cors_origin` and the OAuth client's origins.
 

@@ -70,7 +70,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
       - uses: ./.github/actions/terraform-push-commit
         with:
           terraform_directory: 'infrastructure/env'
@@ -78,7 +78,7 @@ jobs:
           # One client ID, defined in infrastructure/root, serves every environment.
           secrets: |
             TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
-            TF_VAR_ci_service_account=${{ vars.SERVICE_ACCOUNT }}
+            TF_VAR_ci_service_account=${{ vars.PROMOTE_SERVICE_ACCOUNT }}
 
   # Step 2: deploy the commit-SHA-tagged image already sitting in prod's own registry, pushed there
   # when this commit was built and deployed to staging (see Staging Deployments in `.github/AGENTS.md`).
@@ -99,7 +99,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
       # Retention only: the release-<version> tag is what the registry's keep-releases cleanup policy
@@ -138,20 +138,20 @@ jobs:
         with:
           project_id: ${{ vars.GCP_ROOT_PROJECT }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
           secrets_list: |
             CLOUDFLARE_API_TOKEN=cloudflare_api_token
-            CLOUDFLARE_ACCOUNT_ID=cloudflare_account_id
       - uses: ./.github/actions/frontend-fetch
         with:
           gcp_project_id: '${{ vars.GCP_PROJECT_PREFIX }}-prod'
           sha: ${{ needs.target.outputs.sha }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
       - uses: ./.github/actions/frontend-deploy
         with:
           secrets: ${{ steps.secrets.outputs.secrets }}
           cloudflare_project_name: '${{ vars.GCP_PROJECT_PREFIX }}-prod'
+          cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           backend_url: ${{ needs.services-backend.outputs.backend_url }}
           version: ${{ needs.target.outputs.tag }}
           environment: 'production'

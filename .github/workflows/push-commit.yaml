@@ -90,10 +90,9 @@ jobs:
         with:
           project_id: ${{ vars.GCP_ROOT_PROJECT }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
           secrets_list: |
             CLOUDFLARE_API_TOKEN=cloudflare_api_token
-            CLOUDFLARE_ACCOUNT_ID=cloudflare_account_id
       # Looked up directly (reusing gcp-secret-manager's auth): services-backend is a matrix, and a
       # matrix job's outputs don't say which leg wrote them.
       - id: backend
@@ -118,11 +117,12 @@ jobs:
           prod_project_id: '${{ vars.GCP_PROJECT_PREFIX }}-prod'
           sha: ${{ github.sha }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
       - uses: ./.github/actions/frontend-deploy
         with:
           secrets: ${{ steps.secrets.outputs.secrets }}
           cloudflare_project_name: '${{ vars.GCP_PROJECT_PREFIX }}-stag'
+          cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           backend_url: ${{ steps.backend.outputs.backend_url }}
           # Staging runs a commit, not a release, so it shows the short SHA; production shows the
           # release tag it was promoted from (promote-release.yaml).
@@ -147,10 +147,9 @@ jobs:
         with:
           project_id: ${{ vars.GCP_ROOT_PROJECT }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
           secrets_list: |
             TF_VAR_github_provider_token=github_provider_token
-            TF_VAR_cloudflare_account_id=cloudflare_account_id
             TF_VAR_cloudflare_api_token=cloudflare_api_token
       - uses: ./.github/actions/terraform-push-commit
         with:
@@ -176,7 +175,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
       - uses: ./.github/actions/terraform-push-commit
         with:
           terraform_directory: 'infrastructure/env'
@@ -184,7 +183,7 @@ jobs:
           # One client ID, defined in infrastructure/root, serves every environment.
           secrets: |
             TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
-            TF_VAR_ci_service_account=${{ vars.SERVICE_ACCOUNT }}
+            TF_VAR_ci_service_account=${{ vars.DEPLOY_SERVICE_ACCOUNT }}
 
   # Builds on every merge, so every commit on `main`, and therefore every release tag, has a
   # commit-SHA image in both registries. One leg per image, built from the same Dockerfile with
@@ -220,7 +219,7 @@ jobs:
           image_name: ${{ matrix.image }}
           image_tag: ${{ github.sha }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
 
   # The deployed frontend and backend together, signed out and read-only, against the live
   # staging site - the defects that sit between components (config.json, CORS, the Worker,
@@ -282,7 +281,7 @@ jobs:
         with:
           project_id: ${{ vars.GCP_ROOT_PROJECT }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.DEPLOY_SERVICE_ACCOUNT }}
           secrets_list: |
             RELEASE_PLEASE_TOKEN=github_provider_token
       - name: Export Secrets
@@ -313,7 +312,7 @@ jobs:
         uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.SERVICE_ACCOUNT }}
+          service_account: ${{ vars.PLAN_SERVICE_ACCOUNT }}
       - uses: ./.github/actions/terraform-pull-request
         with:
           terraform_directory: 'infrastructure/env'
@@ -321,7 +320,7 @@ jobs:
           # Same as every other prod plan/apply, or this plan shows GOOGLE_CLIENT_ID being blanked.
           secrets: |
             TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
-            TF_VAR_ci_service_account=${{ vars.SERVICE_ACCOUNT }}
+            TF_VAR_ci_service_account=${{ vars.PROMOTE_SERVICE_ACCOUNT }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pull_request_number: ${{ needs.release-please.outputs.pr_number }}
 
