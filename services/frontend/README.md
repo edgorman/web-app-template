@@ -1,6 +1,6 @@
 # frontend
 
-Vite/React single-page app, deployed to Cloudflare Pages (see the repository root `AGENTS.md` for
+Vite/React single-page app, deployed to Cloudflare Workers as static assets (see the repository root `AGENTS.md` for
 the full deployment architecture). It is a shell - nav bar, Google sign-in, theme toggle, error
 boundary, runtime config - around the backend's example **notes** resource:
 
@@ -16,7 +16,7 @@ boundary, runtime config - around the backend's example **notes** resource:
 Every page degrades to an explanatory message rather than an error when its configuration is
 missing, so the page is still useful before anything is deployed.
 
-`public/_worker.js` is a Cloudflare Pages worker for crawlers and link previews: it serves
+`worker/index.js` is the Cloudflare Worker in front of the static site, for crawlers and link previews: it serves
 `robots.txt` and `sitemap.xml`, and puts a public note's title and description into the HTML a
 crawler receives. It marks every response on a host other than production's `noindex`.
 
@@ -114,7 +114,7 @@ environment.
 
 `SMOKE_BASE_URL=<site> npx playwright test` runs the post-deploy smoke test in `e2e/` against a live
 site, signed out and read-only (CI passes the staging URL). `push-commit.yaml`'s
-`smoke` job runs it after every staging deploy, and `pre-release` waits on it. Its files are named
+`smoke` job runs it after every staging deploy, and `release-please` waits on it. Its files are named
 `*.e2e.ts` so `npm test` never picks them up; first run `npx playwright install chromium` outside a
 Claude Code cloud session, which has one preinstalled.
 

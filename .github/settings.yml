@@ -7,7 +7,7 @@
 repository:
   # General
   name: webapp-template
-  description: Template for a full-stack web app - Go on Cloud Run, React on Cloudflare Pages, Terraform, moon, trunk-based CI/CD.
+  description: Template for a full-stack web app - Go on Cloud Run, React on Cloudflare Workers, Terraform, moon, trunk-based CI/CD.
   # A GitHub template repository, so "Use this template" creates new repositories from it. A
   # repository made from it sets this back to false along with its own name (docs/new-repo.md).
   is_template: true
@@ -20,7 +20,7 @@ repository:
   default_branch: main
 
   # Merge button behaviour — squash-only keeps trunk history linear, which the
-  # pre-release/release tagging strategy in .github/AGENTS.md depends on.
+  # release-please's reading of Conventional Commit subjects (.github/AGENTS.md) depends on.
   allow_squash_merge: true
   allow_merge_commit: false
   allow_rebase_merge: false
@@ -47,7 +47,7 @@ labels:
     description: GitHub Actions / workflow changes
   - name: release
     color: "0052cc"
-    description: Related to a pre-release or production release
+    description: Related to a release or its promotion to production
 
 branches:
   - name: main
@@ -79,12 +79,12 @@ branches:
           - changed
           - lint-check
           - test
-          - protos-drift
+          - api-drift
           - infrastructure-root
           - infrastructure-staging
           - infrastructure-prod
           - pr-title
-          - protos-breaking
+          - api-breaking
 
       # Stays false on purpose: Claude Code opens PRs as the repository owner, GitHub never lets an
       # author approve their own PR, so the owner merges those with the admin override. Revisit

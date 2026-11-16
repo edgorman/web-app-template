@@ -21,9 +21,8 @@ runs:
       working-directory: services/frontend
       run: npm ci
 
-    # No backend URL baked in here - the bundle is environment-neutral (see the Configuration
-    # section of services/frontend/README.md) so the same dist/ is published to every environment
-    # and told which backend to call at deploy time via config.json.
+    # The bundle is environment-neutral - no backend URL baked in - so one dist/ serves every
+    # environment, told its backend at deploy time via config.json (decision 15).
     - name: Build
       shell: bash
       working-directory: services/frontend

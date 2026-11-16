@@ -10,16 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/encoding/protojson"
-
+	"github.com/edgorman/webapp-template/services/backend/internal/api"
 	"github.com/edgorman/webapp-template/services/backend/internal/entity"
-	appv1 "github.com/edgorman/webapp-template/services/backend/internal/gen/app/v1"
 )
 
-func noteRequestBody(t *testing.T, body *appv1.NoteRequest) *bytes.Reader {
+func noteRequestBody(t *testing.T, body *api.NoteRequest) *bytes.Reader {
 	t.Helper()
 
-	encoded, err := protojson.Marshal(body)
+	encoded, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}
@@ -34,7 +32,7 @@ func notePathRequest(method, id string, body io.Reader) *http.Request {
 }
 
 // wireNote and wireNotePage are what a response body actually carries, spelled out here rather
-// than decoded into appv1.Note: reusing the production type would hide the wire, since both sides
+// than decoded into api.Note: reusing the production type would hide the wire, since both sides
 // would move together and a field leaving the body would assert nothing. Declared separately, a
 // rename fails here.
 type wireNote struct {
@@ -106,7 +104,7 @@ func TestListNotes_OnlyReadableNotesNewestFirst(t *testing.T) {
 		{"bob", "bobprivate bobpublic annpublic"},
 	} {
 		rec := httptest.NewRecorder()
-		s.ListNotes(rec, withUID(httptest.NewRequest(http.MethodGet, "/notes", nil), tt.uid))
+		routed(s).ServeHTTP(rec, withUID(httptest.NewRequest(http.MethodGet, "/notes", nil), tt.uid))
 		assertStatus(t, rec, http.StatusOK)
 
 		if got := strings.Join(idsOf(decode[wireNotePage](t, rec)), " "); got != tt.want {
@@ -119,7 +117,7 @@ func TestListNotes_Paginates(t *testing.T) {
 	s := newTestService(seededNotes(), nil)
 
 	rec := httptest.NewRecorder()
-	s.ListNotes(rec, withUID(httptest.NewRequest(http.MethodGet, "/notes?limit=1", nil), ""))
+	routed(s).ServeHTTP(rec, withUID(httptest.NewRequest(http.MethodGet, "/notes?limit=1", nil), ""))
 	first := decode[wireNotePage](t, rec)
 	if strings.Join(idsOf(first), " ") != "bobpublic" || !first.HasMore {
 		t.Fatalf("first page = %v (hasMore %v), want [bobpublic] with more", idsOf(first), first.HasMore)
@@ -127,7 +125,7 @@ func TestListNotes_Paginates(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	next := "/notes?limit=1&startAfter=" + first.Notes[0].CreatedAt
-	s.ListNotes(rec, withUID(httptest.NewRequest(http.MethodGet, next, nil), ""))
+	routed(s).ServeHTTP(rec, withUID(httptest.NewRequest(http.MethodGet, next, nil), ""))
 	second := decode[wireNotePage](t, rec)
 	if strings.Join(idsOf(second), " ") != "annpublic" || second.HasMore {
 		t.Fatalf("second page = %v (hasMore %v), want [annpublic] and no more", idsOf(second), second.HasMore)
@@ -137,18 +135,16 @@ func TestListNotes_Paginates(t *testing.T) {
 // An empty page is an empty array with hasMore false on the wire, not null and not absent.
 func TestListNotes_EmptyWireBody(t *testing.T) {
 	rec := httptest.NewRecorder()
-	newTestService(nil, nil).ListNotes(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
+	routed(newTestService(nil, nil)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
 
-	if got := strings.TrimSpace(rec.Body.String()); got != `{"notes":[],"hasMore":false}` {
-		t.Errorf("body = %s", got)
-	}
+	assertJSONBody(t, rec, `{"notes":[],"hasMore":false}`)
 }
 
 func TestListNotes_RejectsMalformedParams(t *testing.T) {
 	s := newTestService(nil, nil)
 	for _, query := range []string{"limit=0", "limit=x", "startAfter=yesterday"} {
 		rec := httptest.NewRecorder()
-		s.ListNotes(rec, httptest.NewRequest(http.MethodGet, "/notes?"+query, nil))
+		routed(s).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notes?"+query, nil))
 		assertStatus(t, rec, http.StatusBadRequest)
 		decodeAPIError(t, rec)
 	}
@@ -164,7 +160,7 @@ func TestListNotes_ResolvesEachAuthorOnce(t *testing.T) {
 	users.seed(entity.User{ID: "owner", Username: "sly-dancing-monkey"})
 
 	rec := httptest.NewRecorder()
-	newTestService(notes, users).ListNotes(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
+	routed(newTestService(notes, users)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/notes", nil))
 
 	for _, note := range decode[wireNotePage](t, rec).Notes {
 		if note.AuthorUsername != "sly-dancing-monkey" {
@@ -187,12 +183,10 @@ func TestGetNote_WireBody(t *testing.T) {
 	users.seed(entity.User{ID: "owner", Username: "sly-dancing-monkey"})
 
 	rec := httptest.NewRecorder()
-	newTestService(notes, users).GetNote(rec, notePathRequest(http.MethodGet, "n1", nil))
+	routed(newTestService(notes, users)).ServeHTTP(rec, notePathRequest(http.MethodGet, "n1", nil))
 
 	want := `{"id":"n1","authorUsername":"sly-dancing-monkey","title":"Hello","body":"World","visibility":"public","createdAt":"2026-01-02T03:04:05Z","updatedAt":"2026-01-02T03:04:05Z"}`
-	if got := strings.TrimSpace(rec.Body.String()); got != want {
-		t.Errorf("body =\n%s\nwant\n%s", got, want)
-	}
+	assertJSONBody(t, rec, want)
 }
 
 // A note the caller may not read answers exactly as a missing one does, for every action, so a
@@ -200,19 +194,19 @@ func TestGetNote_WireBody(t *testing.T) {
 func TestNoteRoutes_UnreadableIsNotFound(t *testing.T) {
 	s := newTestService(seededNotes(), nil)
 	body := func() io.Reader {
-		return noteRequestBody(t, &appv1.NoteRequest{Title: "t", Visibility: "public"})
+		return noteRequestBody(t, &api.NoteRequest{Title: "t", Visibility: "public"})
 	}
 
 	for _, id := range []string{"annprivate", "missing"} {
 		for name, run := range map[string]func(*httptest.ResponseRecorder){
 			"get": func(rec *httptest.ResponseRecorder) {
-				s.GetNote(rec, withUID(notePathRequest(http.MethodGet, id, nil), "bob"))
+				routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodGet, id, nil), "bob"))
 			},
 			"update": func(rec *httptest.ResponseRecorder) {
-				s.UpdateNote(rec, withUID(notePathRequest(http.MethodPut, id, body()), "bob"))
+				routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodPut, id, body()), "bob"))
 			},
 			"delete": func(rec *httptest.ResponseRecorder) {
-				s.DeleteNote(rec, withUID(notePathRequest(http.MethodDelete, id, nil), "bob"))
+				routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodDelete, id, nil), "bob"))
 			},
 		} {
 			rec := httptest.NewRecorder()
@@ -231,12 +225,12 @@ func TestNoteRoutes_WritesAreTheOwnersAlone(t *testing.T) {
 	s := newTestService(notes, nil)
 
 	rec := httptest.NewRecorder()
-	body := noteRequestBody(t, &appv1.NoteRequest{Title: "mine now", Visibility: "public"})
-	s.UpdateNote(rec, withUID(notePathRequest(http.MethodPut, "annpublic", body), "bob"))
+	body := noteRequestBody(t, &api.NoteRequest{Title: "mine now", Visibility: "public"})
+	routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodPut, "annpublic", body), "bob"))
 	assertStatus(t, rec, http.StatusForbidden)
 
 	rec = httptest.NewRecorder()
-	s.DeleteNote(rec, withUID(notePathRequest(http.MethodDelete, "annpublic", nil), "bob"))
+	routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodDelete, "annpublic", nil), "bob"))
 	assertStatus(t, rec, http.StatusForbidden)
 
 	if _, err := notes.Get(t.Context(), "annpublic"); err != nil {
@@ -249,7 +243,7 @@ func TestCreateNote_OwnedByTheCaller(t *testing.T) {
 	s := newTestService(notes, nil)
 
 	rec := httptest.NewRecorder()
-	body := noteRequestBody(t, &appv1.NoteRequest{Title: "  Hello  ", Body: "World", Visibility: "private"})
+	body := noteRequestBody(t, &api.NoteRequest{Title: "  Hello  ", Body: "World", Visibility: "private"})
 	s.CreateNote(rec, withUID(httptest.NewRequest(http.MethodPost, "/notes", body), "ann"))
 	assertStatus(t, rec, http.StatusCreated)
 
@@ -265,7 +259,7 @@ func TestCreateNote_OwnedByTheCaller(t *testing.T) {
 
 func TestCreateNote_RejectsInvalidFields(t *testing.T) {
 	s := newTestService(nil, nil)
-	for _, req := range []*appv1.NoteRequest{
+	for _, req := range []*api.NoteRequest{
 		{Title: "t", Visibility: "everyone"},
 		{Title: strings.Repeat("a", entity.MaxTitleLength+1), Visibility: "public"},
 	} {
@@ -283,8 +277,8 @@ func TestUpdateNote_KeepsServerSetFields(t *testing.T) {
 	s := newTestService(notes, nil)
 
 	rec := httptest.NewRecorder()
-	body := noteRequestBody(t, &appv1.NoteRequest{Title: "Edited", Visibility: "private"})
-	s.UpdateNote(rec, withUID(notePathRequest(http.MethodPut, "annpublic", body), "ann"))
+	body := noteRequestBody(t, &api.NoteRequest{Title: "Edited", Visibility: "private"})
+	routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodPut, "annpublic", body), "ann"))
 	assertStatus(t, rec, http.StatusOK)
 
 	after, _ := notes.Get(t.Context(), "annpublic")
@@ -301,10 +295,10 @@ func TestDeleteNote_Owner(t *testing.T) {
 	s := newTestService(notes, nil)
 
 	rec := httptest.NewRecorder()
-	s.DeleteNote(rec, withUID(notePathRequest(http.MethodDelete, "annprivate", nil), "ann"))
+	routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodDelete, "annprivate", nil), "ann"))
 	assertStatus(t, rec, http.StatusNoContent)
 
 	rec = httptest.NewRecorder()
-	s.GetNote(rec, withUID(notePathRequest(http.MethodGet, "annprivate", nil), "ann"))
+	routed(s).ServeHTTP(rec, withUID(notePathRequest(http.MethodGet, "annprivate", nil), "ann"))
 	assertStatus(t, rec, http.StatusNotFound)
 }

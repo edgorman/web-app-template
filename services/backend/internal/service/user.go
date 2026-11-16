@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
+	"github.com/edgorman/webapp-template/services/backend/internal/api"
 	"github.com/edgorman/webapp-template/services/backend/internal/entity"
-	appv1 "github.com/edgorman/webapp-template/services/backend/internal/gen/app/v1"
 	"github.com/edgorman/webapp-template/services/backend/internal/repository"
 )
 
@@ -21,15 +19,20 @@ const usernameAttempts = 5
 // applyUpdate validates every field of an update through the entity's setters before touching
 // user. An omitted username leaves whatever the profile already holds in place, so a client
 // editing only its bio keeps the name it was given at sign-up without having to echo it back -
-// which is what the request message's `optional username` buys and a bare string could not.
-func applyUpdate(req *appv1.UpdateCurrentUserRequest, user *entity.User) error {
+// which is what the request's optional `username` buys and a bare string could not. An omitted bio
+// clears it.
+func applyUpdate(req api.UpdateCurrentUserRequest, user *entity.User) error {
 	candidate := *user
 	if req.Username != nil {
-		if err := candidate.SetUsername(req.GetUsername()); err != nil {
+		if err := candidate.SetUsername(*req.Username); err != nil {
 			return err
 		}
 	}
-	if err := candidate.SetBio(req.GetBio()); err != nil {
+	bio := ""
+	if req.Bio != nil {
+		bio = *req.Bio
+	}
+	if err := candidate.SetBio(bio); err != nil {
 		return err
 	}
 
@@ -37,25 +40,25 @@ func applyUpdate(req *appv1.UpdateCurrentUserRequest, user *entity.User) error {
 	return nil
 }
 
-// userMessage is the public profile as anybody may read it. The account's id is absent from
-// appv1.User entirely rather than skipped here, so a lookup cannot disclose it by oversight.
-func userMessage(user entity.User) *appv1.User {
-	return &appv1.User{
+// userResponse is the public profile as anybody may read it. The account's id is absent from
+// api.User entirely rather than skipped here, so a lookup cannot disclose it by oversight.
+func userResponse(user entity.User) api.User {
+	return api.User{
 		Username:  user.Username,
 		Bio:       user.Bio,
-		CreatedAt: timestamppb.New(user.CreatedAt),
-		UpdatedAt: timestamppb.New(user.UpdatedAt),
+		CreatedAt: user.CreatedAt.UTC(),
+		UpdatedAt: user.UpdatedAt.UTC(),
 	}
 }
 
-// currentUserMessage is the caller's own profile, which alone carries the account's id.
-func currentUserMessage(user entity.User) *appv1.CurrentUser {
-	return &appv1.CurrentUser{
+// currentUserResponse is the caller's own profile, which alone carries the account's id.
+func currentUserResponse(user entity.User) api.CurrentUser {
+	return api.CurrentUser{
 		Id:        user.ID,
 		Username:  user.Username,
 		Bio:       user.Bio,
-		CreatedAt: timestamppb.New(user.CreatedAt),
-		UpdatedAt: timestamppb.New(user.UpdatedAt),
+		CreatedAt: user.CreatedAt.UTC(),
+		UpdatedAt: user.UpdatedAt.UTC(),
 	}
 }
 
@@ -73,7 +76,7 @@ func (s *Service) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeProto(w, http.StatusOK, currentUserMessage(user))
+	writeJSON(w, http.StatusOK, currentUserResponse(user))
 }
 
 // GetUser returns the profile holding a username. Any caller, signed in or not, may read any
@@ -82,11 +85,11 @@ func (s *Service) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 //
 // A 404 from here is also the answer to "is this name free?", so no separate availability endpoint
 // is needed; profiles are public either way, so it discloses nothing a lookup would not.
-func (s *Service) GetUser(w http.ResponseWriter, r *http.Request) {
+func (s *Service) GetUser(w http.ResponseWriter, r *http.Request, username string) {
 	// Validating first answers a malformed name with the rule it broke, rather than with the 404
 	// that looking it up would produce for it.
 	var candidate entity.User
-	if err := candidate.SetUsername(r.PathValue("username")); err != nil {
+	if err := candidate.SetUsername(username); err != nil {
 		writeValidationError(w, err)
 		return
 	}
@@ -101,7 +104,7 @@ func (s *Service) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeProto(w, http.StatusOK, userMessage(user))
+	writeJSON(w, http.StatusOK, userResponse(user))
 }
 
 // saveUser writes the profile, naming it first when it has none - which is every profile at
@@ -135,8 +138,8 @@ func (s *Service) saveUser(ctx context.Context, user entity.User) (entity.User, 
 func (s *Service) PutUser(w http.ResponseWriter, r *http.Request) {
 	id := uidFromContext(r.Context())
 
-	var body appv1.UpdateCurrentUserRequest
-	if !readProto(w, r, &body) {
+	var body api.UpdateCurrentUserRequest
+	if !readJSON(w, r, &body) {
 		return
 	}
 
@@ -148,7 +151,7 @@ func (s *Service) PutUser(w http.ResponseWriter, r *http.Request) {
 	}
 	user.ID = id
 
-	if err := applyUpdate(&body, &user); err != nil {
+	if err := applyUpdate(body, &user); err != nil {
 		writeValidationError(w, err)
 		return
 	}
@@ -169,7 +172,7 @@ func (s *Service) PutUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// The same shape GetCurrentUser answers with, so a client that has just created its profile
 	// learns the name it was given without a second request.
-	writeProto(w, status, currentUserMessage(saved))
+	writeJSON(w, status, currentUserResponse(saved))
 }
 
 // DeleteUser erases the caller's account: every note it wrote, then the profile. It is addressed

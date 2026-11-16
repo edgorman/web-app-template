@@ -77,12 +77,12 @@ resource "google_artifact_registry_repository_iam_member" "backend_github_action
   location   = each.value.location
   repository = each.value.name
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${google_service_account.github_actions.email}"
+  member     = "serviceAccount:${google_service_account.github_deploy.email}"
 }
 
 # One folder per commit SHA (that is its versioning; the bucket itself has none): CI writes the
-# built site here on merge and reads it back on deploy, and Cloudflare Pages serves the extracted
-# files. Not public. Named after the project because bucket names are global across GCS.
+# built site here on merge and reads it back on deploy, and Cloudflare Workers serves the extracted
+# files as static assets. Not public. Named after the project because bucket names are global across GCS.
 resource "google_storage_bucket" "frontend" {
   for_each   = google_project.env_projects
   depends_on = [google_project_service.project_services]
@@ -115,5 +115,5 @@ resource "google_storage_bucket_iam_member" "frontend_github_actions_writer" {
 
   bucket = each.value.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.github_actions.email}"
+  member = "serviceAccount:${google_service_account.github_deploy.email}"
 }

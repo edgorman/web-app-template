@@ -12,7 +12,6 @@ tasks:
     script: 'terraform init -backend=false -input=false && terraform validate'
     options:
       cache: false        # init writes .terraform/, which is gitignored
-      # registry.terraform.io isn't in a Claude Code cloud session's default network allowlist
-      # (see AGENTS.md) - confirmed locally: `terraform init` fails with a 403 fetching the
-      # provider discovery document. Runs in CI only until that's addressed.
+      # `terraform init` needs registry.terraform.io, which a Claude Code cloud session may not reach
+      # (see AGENTS.md): runs in CI only.
       runInCI: 'only'

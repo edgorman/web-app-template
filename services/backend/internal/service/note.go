@@ -4,28 +4,25 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
-	"time"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
+	"github.com/edgorman/webapp-template/services/backend/internal/api"
 	"github.com/edgorman/webapp-template/services/backend/internal/entity"
-	appv1 "github.com/edgorman/webapp-template/services/backend/internal/gen/app/v1"
 	"github.com/edgorman/webapp-template/services/backend/internal/repository"
 )
 
-// noteMessage is the wire shape of a single note: what GetNote, CreateNote and UpdateNote answer
+// noteResponse is the wire shape of a single note: what GetNote, CreateNote and UpdateNote answer
 // with, and what each entry of a NotePage carries. author is the owner's username, resolved on read
-// (see usernamesFor), since the uid a note records its owner by is never public.
-func noteMessage(note entity.Note, author string) *appv1.Note {
-	return &appv1.Note{
+// (see usernamesFor), since the uid a note records its owner by is never public. Times are UTC, so
+// they always render with a "Z".
+func noteResponse(note entity.Note, author string) api.Note {
+	return api.Note{
 		Id:             note.ID,
 		AuthorUsername: author,
 		Title:          note.Title,
 		Body:           note.Body,
-		Visibility:     string(note.Visibility),
-		CreatedAt:      timestamppb.New(note.CreatedAt),
-		UpdatedAt:      timestamppb.New(note.UpdatedAt),
+		Visibility:     api.Visibility(note.Visibility),
+		CreatedAt:      note.CreatedAt.UTC(),
+		UpdatedAt:      note.UpdatedAt.UTC(),
 	}
 }
 
@@ -59,25 +56,25 @@ func (s *Service) writeNote(w http.ResponseWriter, r *http.Request, status int, 
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeProto(w, status, noteMessage(note, authors[note.OwnerID]))
+	writeJSON(w, status, noteResponse(note, authors[note.OwnerID]))
 }
 
 // decodeNoteRequest reads a note body and applies it to note through the entity's setters,
 // writing the error response and returning false if it is malformed. The id, owner and timestamps
-// are decided by the server, so appv1.NoteRequest carries none of them.
+// are decided by the server, so api.NoteRequest carries none of them.
 func decodeNoteRequest(w http.ResponseWriter, r *http.Request, note *entity.Note) bool {
-	var body appv1.NoteRequest
-	if !readProto(w, r, &body) {
+	var body api.NoteRequest
+	if !readJSON(w, r, &body) {
 		return false
 	}
 
 	candidate := *note
-	err := candidate.SetTitle(body.GetTitle())
+	err := candidate.SetTitle(body.Title)
 	if err == nil {
-		err = candidate.SetBody(body.GetBody())
+		err = candidate.SetBody(body.Body)
 	}
 	if err == nil {
-		err = candidate.SetVisibility(entity.Visibility(body.GetVisibility()))
+		err = candidate.SetVisibility(entity.Visibility(body.Visibility))
 	}
 	if err != nil {
 		writeValidationError(w, err)
@@ -88,7 +85,7 @@ func decodeNoteRequest(w http.ResponseWriter, r *http.Request, note *entity.Note
 	return true
 }
 
-// requireNotePermission loads the note the request addresses and checks the caller holds the
+// requireNotePermission loads the note with the given id and checks the caller holds the
 // named permission on it (see entity.Note.Permission), writing the error response and returning
 // false otherwise.
 //
@@ -96,8 +93,8 @@ func decodeNoteRequest(w http.ResponseWriter, r *http.Request, note *entity.Note
 // "not found" a missing note gets rather than the 403 they were really refused with, so a refusal
 // never confirms that a private note exists. Only once a note is visible to the caller does a
 // failed check become a 403, which reveals nothing they did not already know.
-func (s *Service) requireNotePermission(w http.ResponseWriter, r *http.Request, action entity.Action) (entity.Note, bool) {
-	note, err := s.notes.Get(r.Context(), r.PathValue("id"))
+func (s *Service) requireNotePermission(w http.ResponseWriter, r *http.Request, id string, action entity.Action) (entity.Note, bool) {
+	note, err := s.notes.Get(r.Context(), id)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return entity.Note{}, false
@@ -118,35 +115,28 @@ func (s *Service) requireNotePermission(w http.ResponseWriter, r *http.Request, 
 // listNotesDefaultLimit is the page size ListNotes applies when a caller sends no `limit`.
 const listNotesDefaultLimit = 20
 
-// parseNoteListParams reads ListNotes' paging out of the query string: `limit` bounds the page and
-// `startAfter` (an RFC3339 timestamp) continues one. A malformed one is a 400 rather than silently
-// ignored.
-func parseNoteListParams(r *http.Request) (repository.ListParams, error) {
-	query := r.URL.Query()
+// listParams turns the bound query string into the repository's paging: `limit` bounds the page
+// (the generated route has already rejected one that is not an integer) and `startAfter` continues
+// one. A limit below one is a 400 rather than silently ignored.
+func listParams(query api.ListNotesParams) (repository.ListParams, error) {
 	params := repository.ListParams{Limit: listNotesDefaultLimit}
 
-	if raw := query.Get("limit"); raw != "" {
-		limit, err := strconv.Atoi(raw)
-		if err != nil || limit <= 0 {
+	if query.Limit != nil {
+		if *query.Limit <= 0 {
 			return repository.ListParams{}, errors.New("limit must be a positive integer")
 		}
-		params.Limit = limit
+		params.Limit = *query.Limit
 	}
-
-	if raw := query.Get("startAfter"); raw != "" {
-		startAfter, err := time.Parse(time.RFC3339Nano, raw)
-		if err != nil {
-			return repository.ListParams{}, errors.New("startAfter must be an RFC3339 timestamp")
-		}
-		params.StartAfter = startAfter
+	if query.StartAfter != nil {
+		params.StartAfter = *query.StartAfter
 	}
 
 	return params, nil
 }
 
 // ListNotes returns one page of the notes the caller may read, newest first.
-func (s *Service) ListNotes(w http.ResponseWriter, r *http.Request) {
-	params, err := parseNoteListParams(r)
+func (s *Service) ListNotes(w http.ResponseWriter, r *http.Request, query api.ListNotesParams) {
+	params, err := listParams(query)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -169,16 +159,16 @@ func (s *Service) ListNotes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Built as a non-nil slice, so an empty page is an empty JSON array rather than null.
-	page := &appv1.NotePage{Notes: make([]*appv1.Note, 0, len(notes)), HasMore: hasMore}
+	page := api.NotePage{Notes: make([]api.Note, 0, len(notes)), HasMore: hasMore}
 	for _, note := range notes {
-		page.Notes = append(page.Notes, noteMessage(note, authors[note.OwnerID]))
+		page.Notes = append(page.Notes, noteResponse(note, authors[note.OwnerID]))
 	}
-	writeProto(w, http.StatusOK, page)
+	writeJSON(w, http.StatusOK, page)
 }
 
 // GetNote returns a single note, provided the caller may read it.
-func (s *Service) GetNote(w http.ResponseWriter, r *http.Request) {
-	note, ok := s.requireNotePermission(w, r, entity.ActionRead)
+func (s *Service) GetNote(w http.ResponseWriter, r *http.Request, id string) {
+	note, ok := s.requireNotePermission(w, r, id, entity.ActionRead)
 	if !ok {
 		return
 	}
@@ -208,8 +198,8 @@ func (s *Service) CreateNote(w http.ResponseWriter, r *http.Request) {
 
 // UpdateNote replaces a note's client-settable fields. Because the request is applied to the
 // stored note, the id, owner and createdAt carry over untouched.
-func (s *Service) UpdateNote(w http.ResponseWriter, r *http.Request) {
-	note, ok := s.requireNotePermission(w, r, entity.ActionUpdate)
+func (s *Service) UpdateNote(w http.ResponseWriter, r *http.Request, id string) {
+	note, ok := s.requireNotePermission(w, r, id, entity.ActionUpdate)
 	if !ok {
 		return
 	}
@@ -230,8 +220,8 @@ func (s *Service) UpdateNote(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteNote removes a note. Only the owner may delete it.
-func (s *Service) DeleteNote(w http.ResponseWriter, r *http.Request) {
-	note, ok := s.requireNotePermission(w, r, entity.ActionDelete)
+func (s *Service) DeleteNote(w http.ResponseWriter, r *http.Request, id string) {
+	note, ok := s.requireNotePermission(w, r, id, entity.ActionDelete)
 	if !ok {
 		return
 	}

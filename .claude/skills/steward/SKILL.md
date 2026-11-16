@@ -12,10 +12,10 @@ Rules live in the `AGENTS.md` files and their reasoning in `docs/decisions/`; th
 Run what CI runs, from the repo root, against `origin/main` (`git fetch origin main` first):
 
 ```
-moon ci --base origin/main :format :lint :vet :typecheck :build root:wire-types root:projects-covered root:go-version-sync
+moon ci --base origin/main :format :lint :vet :typecheck :build root:wire-types root:projects-covered root:go-version-sync root:decision-links
 moon ci --base origin/main :test
-moon ci --base origin/main packages/protos:drift
-moon ci --base origin/main packages/protos:breaking
+moon ci --base origin/main packages/api:drift
+moon ci --base origin/main packages/api:breaking
 ```
 
 `moon ci` runs only what the diff affects, so a clean run on an untouched project proves nothing about it. In a cloud session two targets cannot run: `:validate` (`terraform init` needs `registry.terraform.io`) and `services/backend:image` (no Docker daemon). For those, read the CI log.
@@ -26,19 +26,22 @@ All seven jobs of `.github/workflows/pull-request.yaml` and both jobs of `.githu
 
 | Check | What a failure means | Fix |
 |---|---|---|
-| `lint-check` → `:format` | `gofmt`, `buf format` or `terraform fmt` | `gofmt -w`, `buf format -w` (from `packages/protos`), `terraform fmt -recursive infrastructure`. The PostToolUse hook already formats `.go`/`.proto` on edit |
-| `lint-check` → `:lint`/`:vet`/`:typecheck`/`:build` | oxlint, `buf lint`, `go vet`, `tsc`, `vite build` | Fix the code |
+| `lint-check` → `:format` | `gofmt` or `terraform fmt` | `gofmt -w`, `terraform fmt -recursive infrastructure`. The PostToolUse hook already formats `.go` on edit |
+| `lint-check` → `:lint`/`:vet`/`:typecheck`/`:build` | oxlint, `go vet`, `tsc`, `vite build` | Fix the code |
 | `lint-check` → `:validate` | `terraform validate` | Fix the HCL. You can't reproduce it locally, so read the log |
-| `lint-check` → `root:wire-types` | An `export interface` in `services/frontend/src/lib/api.ts`, or a `json:"..."` tag in `services/backend/internal/service` outside `debug.go` | Use the generated type from `src/gen` / `internal/gen`. If the type doesn't exist yet, add the message to a `.proto` |
+| `lint-check` → `root:wire-types` | An `export interface` in `services/frontend/src/lib/api.ts`, or a `json:"..."` tag in `services/backend/internal/service` | Use the generated type from `src/gen` / `internal/api`. If the type doesn't exist yet, add the schema to `packages/api/openapi.yaml` |
 | `lint-check` → `root:projects-covered` | A `services/*` or `packages/*` folder has no `moon.yml` | Add one, modelled on a sibling |
+| `lint-check` → `root:decision-links` | A Markdown file links a `docs/decisions/NNNN-*.md` that doesn't exist | Fix the link; the record's number and filename are in `docs/decisions/README.md` |
 | `lint-check` → `root:go-version-sync` | `.prototools`'s `go` pin and `services/backend/go.mod`'s `go` line differ | Change both. Also bump `FROM golang:X-alpine` in `services/backend/Dockerfile` |
 | `test` → `:test` | `go test` or Vitest | A real failure. Root-cause it |
 | `test` → `services/backend:image` | The Docker build | Usually a Go version or a file missing from the build context |
-| `protos-drift` | Generated code doesn't match the `.proto` | `cd packages/protos && buf generate`, then commit `services/backend/internal/gen` and `services/frontend/src/gen`. **Never hand-edit either folder** |
+| `api-drift` | Generated code doesn't match `packages/api/openapi.yaml` | `moon run packages/api:generate`, then commit `services/backend/internal/api` and `services/frontend/src/gen`. **Never hand-edit either folder** |
 | `pr-title` | The PR title isn't a Conventional Commit: `type(scope)?!?: description`, type one of `feat`, `fix`, `build`, `chore`, `ci`, `docs`, `perf`, `refactor`, `revert`, `style`, `test` (root `AGENTS.md`) | Edit the title. The check reruns on the edit, no push needed |
-| `protos-breaking` → `packages/protos:breaking` | `buf breaking` against `origin/main` found a wire break (a field removed, renumbered or retyped, ...) | Make the change additive (see `docs/decisions/0010-wire-changes-across-releases.md`). If the break is deliberate, ask the user: marking the PR breaking (`!` in the title or a `BREAKING CHANGE:` footer in the body) skips the check and bumps major. Local repro: `moon run packages/protos:breaking` |
+| `api-breaking` → `packages/api:breaking` | `oasdiff` against `origin/main`'s spec found a wire break (a property or route removed, a type changed, ...) | Make the change additive (see `docs/decisions/0028-openapi-is-the-api-contract.md`). If the break is deliberate, ask the user: marking the PR breaking (`!` in the title or a `BREAKING CHANGE:` footer in the body) skips the check and bumps major. Local repro: `moon run packages/api:breaking` |
 | `changed` | `moon query affected` failed | A `moon.yml` is invalid. `MOON_BASE=origin/main moon query affected` reproduces it |
 | `infrastructure-{root,staging,prod}` | `terraform init/fmt/validate/plan` with real credentials | See below |
+
+**The `security.yaml` scanners are advisory.** They never fail a run and are not required checks. Read their job summaries (and warning annotations) for what they found, and mention anything relevant to the diff in the PR; don't treat a finding as a CI failure (`docs/decisions/0033-advisory-security-scanning.md`).
 
 **Toolchain errors are not test failures.** `proto-shim: ... Permission denied (os error 13)` is the known toolchain cache bug that `cache: false` works around in every job. If it shows up anyway, it failed before any task ran, so one re-run is allowed.
 
@@ -60,13 +63,13 @@ The plan job posts its output as a PR comment. Read it:
 - **`mergeable_state: blocked` on a green PR is expected.** Claude Code pushes and opens PRs as the repository owner, and GitHub never lets an author approve their own PR, so the owner merges with the admin override (`enforce_admins: false`). Don't investigate it, and never propose dropping `required_pull_request_reviews`.
 - **`required_conversation_resolution`**: resolve every thread you've addressed, and reply on any you're not changing.
 
-## Dependabot PRs
+## Dependency PRs
 
-`build(deps)` PRs come grouped per ecosystem (`gomod-deps`, `npm-deps`, `terraform-deps`, `ci-deps`):
-- Go: if the bump moves `go.mod`'s `go` line, `root:go-version-sync` fails. Bump `.prototools` and the `Dockerfile` image in the same PR.
-- `google.golang.org/protobuf`: `packages/protos/buf.gen.yaml` pins `protoc-gen-go@<version>` to match `go.mod`. Bump it, run `buf generate`, and commit the output, or `protos-drift` fails.
-- `ts-proto` (npm): same idea. Run `buf generate` and commit `src/gen`.
+`build(deps)` PRs come from Renovate (`.github/renovate.json5`), grouped per ecosystem (`ci-deps`, `terraform-deps`, `npm-deps`, `api-tool-deps`, `gomod-deps`, `docker-deps`, `tool-deps`, plus `go toolchain` and `terraform version` for pins that live in several files):
+- Go: if the bump moves `go.mod`'s `go` line, `root:go-version-sync` fails. The `go toolchain` group moves `.prototools`, `go.mod` and the `Dockerfile` image together; if only some moved, fix the rest in the same PR.
+- `oapi-codegen` (a `go tool` in `go.mod`) or `openapi-typescript` (`packages/api/package.json`): run `moon run packages/api:generate` and commit the output, or `api-drift` fails.
 - Terraform providers: the plan comment is the review. Read it for unexpected changes.
+- A pin carrying a `# renovate:` comment is bumped by Renovate's regex manager; keep the comment on the line above when you edit it.
 
 ## Never
 

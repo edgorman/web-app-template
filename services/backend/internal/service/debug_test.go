@@ -10,11 +10,20 @@ import (
 	"github.com/edgorman/webapp-template/services/backend/internal/entity"
 )
 
+// wireDebug is what a /debug body carries, spelled out rather than decoded into api.DebugResponse
+// so a renamed field fails here instead of moving with the production type.
+type wireDebug struct {
+	Status      string `json:"status"`
+	Timestamp   string `json:"timestamp"`
+	Environment string `json:"environment"`
+	Commit      string `json:"commit"`
+}
+
 func TestDebug(t *testing.T) {
 	s := newTestService(nil, nil)
 
 	rec := httptest.NewRecorder()
-	s.Debug(rec, httptest.NewRequest(http.MethodGet, "/debug", nil))
+	s.GetDebug(rec, httptest.NewRequest(http.MethodGet, "/debug", nil))
 
 	res := rec.Result()
 	if res.StatusCode != http.StatusOK {
@@ -24,7 +33,7 @@ func TestDebug(t *testing.T) {
 		t.Fatalf("Content-Type = %q, want %q", ct, "application/json")
 	}
 
-	var body debugResponse
+	var body wireDebug
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}

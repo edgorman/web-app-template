@@ -1,6 +1,6 @@
 # 20. CI authenticates with Workload Identity Federation
 
-Status: Accepted
+Status: Superseded by [32](0032-separate-plan-and-apply-identities.md)
 
 ## Context
 

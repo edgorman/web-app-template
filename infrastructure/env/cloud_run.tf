@@ -33,6 +33,11 @@ resource "google_cloud_run_v2_service" "backend" {
   template {
     service_account = google_service_account.backend_runtime.email
 
+    # Capped to match the in-memory rate limiter; see var.backend_max_instances.
+    scaling {
+      max_instance_count = var.backend_max_instances
+    }
+
     containers {
       image = var.backend_initial_image
 

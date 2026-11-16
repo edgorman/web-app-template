@@ -3,8 +3,8 @@ language: 'go'
 layer: 'application'
 stack: 'backend'
 tags: ['go']
-# Full source path, not 'protos' - the workspace uses globFormat: 'source-path'.
-dependsOn: ['packages/protos']
+# Full source path, not 'api' - the workspace uses globFormat: 'source-path'.
+dependsOn: ['packages/api']
 
 fileGroups:
   sources: ['**/*.go', 'go.mod', 'go.sum']
@@ -18,18 +18,16 @@ tasks:
     inputs: ['@group(sources)']
   test:
     command: 'go test ./...'
-    # An external project input, not a dependsOn/-g relation: v2 --affected doesn't follow graph
-    # relations by default, and a .proto-only edit must still mark this task affected.
-    # The emulator's address is an input too: with it set, internal/repository/firestore's emulator
-    # tests run instead of skipping, so a cached run without it must not stand in for one with it.
-    inputs: ['@group(sources)', 'project://packages/protos', '$FIRESTORE_EMULATOR_HOST']
+    # An external project input, not a dependsOn relation: `--affected` doesn't follow graph relations,
+    # and a spec-only edit must still mark this task affected (decision 12). The emulator's address is
+    # an input too, since with it set the Firestore tests run instead of skipping.
+    inputs: ['@group(sources)', 'project://packages/api', '$FIRESTORE_EMULATOR_HOST']
   build:
     command: 'go build ./...'
     inputs: ['@group(sources)']
   image:
-    # Matches the --build-arg COMMIT_SHA backend-deploy/action.yml already passes; context stays
-    # './' so the Dockerfile's `COPY . .` and a standalone `docker build services/backend` both
-    # keep working unmodified.
+    # Matches backend-deploy's --build-arg COMMIT_SHA; the context stays './' so a standalone
+    # `docker build services/backend` works too.
     script: 'docker build --build-arg COMMIT_SHA="${COMMIT_SHA:-unknown}" -t backend:${COMMIT_SHA:-local} .'
     inputs: ['@group(sources)', 'Dockerfile', '.dockerignore']
     options:
@@ -38,9 +36,8 @@ tasks:
   dev:
     command: 'go run ./cmd/backend'
     preset: 'server'
-  # The backend with no GCP credentials: Firestore is the emulator, which must already be running
-  # (`gcloud emulators firestore start --host-port=127.0.0.1:8081`), and sign-in is the development
-  # token (internal/repository/devauth). See "Running locally" in README.md.
+  # The backend with no GCP credentials: the Firestore emulator must already be running and sign-in
+  # is the development token (see "Running locally" in README.md).
   dev-local:
     command: 'go run ./cmd/backend'
     env:
@@ -49,18 +46,3 @@ tasks:
       ENVIRONMENT: 'local'
       DEV_AUTH: 'true'
     preset: 'server'
-  # A marker task, like the deploy-*:plan ones: its 'inputs' decide whether a merge rebuilds the
-  # image or reuses the last release's (push-commit.yaml's `changed` job, decision 26).
-  publish:
-    command: 'noop'
-    inputs:
-      - '@group(sources)'
-      - 'Dockerfile'
-      - '.dockerignore'
-      - '/.github/actions/backend-deploy/**/*'
-      - '/.github/actions/backend-cloudrun-deploy/**/*'
-      - '/.github/workflows/push-commit.yaml'
-    options:
-      # Not runInCI: false - see infrastructure/config/root/moon.yml's comment: excluding it from CI
-      # hides it from moon query affected's CI-mode results, which push-commit's `changed` reads.
-      cache: false

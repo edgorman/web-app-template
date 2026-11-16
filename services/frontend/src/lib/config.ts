@@ -3,7 +3,7 @@
  * `.github/AGENTS.md`) into `config.json`, served alongside the static build, so one bundle serves
  * every environment. Every field is absent in local dev, which has no `config.json`.
  *
- * - `version`/`environment`: the release tag this commit becomes and 'staging'/'production'.
+ * - `version`/`environment`: the release tag production runs (or the short commit SHA staging runs) and 'staging'/'production'.
  * - `siteUrl`/`siteName`: this environment's public origin and the site's display name, from the
  *   STAGING_URL/PRODUCTION_URL and SITE_NAME repository variables.
  * - `githubRepo`: `owner/name`, for the footer and release links.

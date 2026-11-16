@@ -1,7 +1,8 @@
-// Cloudflare Pages advanced-mode worker: what crawlers and link previews need that a
-// JavaScript-only SPA can't give them. It lives in public/ so Vite copies it into dist/, which makes
-// it part of the commit-SHA bundle frontend-publish stores and prod promotes unchanged. Everything
-// it doesn't handle goes to the static assets untouched, _headers and all.
+// The Cloudflare Worker in front of the static site: what crawlers and link previews need that a
+// JavaScript-only SPA can't give them. wrangler.jsonc runs it first for every request, and
+// everything it doesn't handle goes to the static assets (dist/, `_headers` included) through the
+// ASSETS binding. It is plain JavaScript that ships to Cloudflare as-is, deployed from the same
+// commit as the bundle it fronts.
 //
 // It reads the same config.json frontend-deploy writes next to the bundle that the SPA does - the
 // backend URL, the site's name and its canonical (production) URL - and only ever calls the backend
@@ -35,7 +36,7 @@ export default {
     config.siteUrl ||= url.origin
     const response = await route(request, env, url, config, prod)
     if (prod) return response
-    // Staging (or a *.pages.dev preview) serves the same bundle and the same _headers as prod, so
+    // Staging (or a *.workers.dev address) serves the same bundle and the same _headers as prod, so
     // this is the one place that can tell it apart and keep it out of search results.
     const marked = new Response(response.body, response)
     marked.headers.set('X-Robots-Tag', 'noindex')
@@ -157,7 +158,7 @@ async function readConfig(env, url) {
     const response = await env.ASSETS.fetch(new URL('/config.json', url))
     if (response.ok) config = await response.json()
   } catch {
-    // Missing: Pages answers the SPA shell instead, which isn't JSON.
+    // Missing: the static assets answer the SPA shell instead, which isn't JSON.
   }
   const text = (value) => (typeof value === 'string' ? value.replace(/\/$/, '') : '')
   return { backendUrl: text(config.backendUrl), siteUrl: text(config.siteUrl), siteName: text(config.siteName) }

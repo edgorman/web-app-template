@@ -20,7 +20,12 @@ export function snippetFrom(body: string, max = 160): string {
   return `${plain.slice(0, max - 1).trimEnd()}…`
 }
 
-/** Links a release tag (e.g. "v1.2.3", from config.json) to its GitHub Releases page. */
-export function releaseUrl(githubRepo: string, tag: string): string {
-  return `https://github.com/${githubRepo}/releases/tag/${tag}`
+/**
+ * Links the version from config.json to GitHub: a release tag (e.g. "v1.2.3", what production runs)
+ * to its Releases page, and anything else (staging runs a commit, shown by its short SHA) to the
+ * commit.
+ */
+export function releaseUrl(githubRepo: string, version: string): string {
+  const kind = /^v\d/.test(version) ? 'releases/tag' : 'commit'
+  return `https://github.com/${githubRepo}/${kind}/${version}`
 }

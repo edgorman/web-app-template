@@ -1,6 +1,6 @@
 # 4. ts-proto options
 
-Status: Accepted
+Status: Superseded by [28](0028-openapi-is-the-api-contract.md)
 
 ## Context
 

@@ -7,11 +7,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/edgorman/webapp-template/services/backend/internal/api"
 	"github.com/edgorman/webapp-template/services/backend/internal/entity"
 	"github.com/edgorman/webapp-template/services/backend/internal/repository"
 )
@@ -246,7 +248,7 @@ func withUID(req *http.Request, uid string) *http.Request {
 }
 
 // wireError is what a non-2xx response body actually carries, spelled out here rather than
-// decoded into appv1.ErrorResponse - see wireNote (note_test.go) for why: reusing the production type would hide the wire, since both sides would move together
+// decoded into api.ErrorResponse - see wireNote (note_test.go) for why: reusing the production type would hide the wire, since both sides would move together
 // and a field leaving the body would assert nothing. Declared separately, a rename fails here.
 type wireError struct {
 	Error string `json:"error"`
@@ -267,4 +269,30 @@ func decodeAPIError(t *testing.T, rec *httptest.ResponseRecorder) wireError {
 		t.Error("error body has an empty message")
 	}
 	return body
+}
+
+// routed serves requests through the generated routes alone, with no authentication, so a test
+// injects its caller with withUID. Path and query parameters are bound exactly as in production,
+// which calling a handler method directly would skip.
+func routed(s *Service) http.Handler {
+	mux := http.NewServeMux()
+	api.HandlerWithOptions(s, api.StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest})
+	return mux
+}
+
+// assertJSONBody compares a response body with the JSON it must carry, key for key: the order of
+// an object's keys is not part of the contract, so only the names and values are pinned.
+func assertJSONBody(t *testing.T, rec *httptest.ResponseRecorder, want string) {
+	t.Helper()
+
+	var got, expected any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not JSON: %v\n%s", err, rec.Body.String())
+	}
+	if err := json.Unmarshal([]byte(want), &expected); err != nil {
+		t.Fatalf("bad expectation: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("body =\n%s\nwant\n%s", strings.TrimSpace(rec.Body.String()), want)
+	}
 }

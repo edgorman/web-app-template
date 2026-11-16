@@ -4,6 +4,10 @@ describe('releaseUrl', () => {
   it("links to the tag's GitHub Releases page", () => {
     expect(releaseUrl('owner/repo', 'v1.2.3')).toBe('https://github.com/owner/repo/releases/tag/v1.2.3')
   })
+
+  it('links a short commit SHA to the commit', () => {
+    expect(releaseUrl('owner/repo', 'abc1234')).toBe('https://github.com/owner/repo/commit/abc1234')
+  })
 })
 
 describe('snippetFrom', () => {

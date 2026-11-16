@@ -10,10 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/encoding/protojson"
-
+	"github.com/edgorman/webapp-template/services/backend/internal/api"
 	"github.com/edgorman/webapp-template/services/backend/internal/entity"
-	appv1 "github.com/edgorman/webapp-template/services/backend/internal/gen/app/v1"
 	"github.com/edgorman/webapp-template/services/backend/internal/repository"
 )
 
@@ -37,13 +35,13 @@ func usernameHTTPRequest(username string) *http.Request {
 	return req
 }
 
-// ptr is for UpdateCurrentUserRequest.Username, whose pointer distinguishes an omitted name from
+// ptr is for UpdateCurrentUserRequest, whose pointers distinguish an omitted field from
 // a cleared one.
 func ptr(s string) *string { return &s }
 
 // wireUser and wireCurrentUser are what a response body actually carries, spelled out here rather
 // than decoded into a production type. Reusing entity.User - which these tests did before the
-// profile moved onto appv1.User - hid the wire: both sides would move together and a field
+// profile moved onto api.User - hid the wire: both sides would move together and a field
 // leaving the body would assert nothing. Declared separately, a rename fails here.
 type wireUser struct {
 	ID        string `json:"id"`
@@ -57,10 +55,10 @@ type wireCurrentUser struct {
 	wireUser
 }
 
-func userRequestBody(t *testing.T, body *appv1.UpdateCurrentUserRequest) []byte {
+func userRequestBody(t *testing.T, body *api.UpdateCurrentUserRequest) []byte {
 	t.Helper()
 
-	encoded, err := protojson.Marshal(body)
+	encoded, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("marshal request: %v", err)
 	}
@@ -71,7 +69,7 @@ func TestPutUser_CreatesOwnProfile(t *testing.T) {
 	repo := newFakeUserRepository()
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Bio: "hello"})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Bio: ptr("hello")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -119,7 +117,7 @@ func TestPutUser_AlwaysWritesTheCallersOwnProfile(t *testing.T) {
 	repo.seed(entity.User{ID: "someone-else", Username: "bold-leaping-lynx"})
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Bio: "impostor"})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Bio: ptr("impostor")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -137,7 +135,7 @@ func TestPutUser_AlwaysWritesTheCallersOwnProfile(t *testing.T) {
 func TestPutUser_RejectsOverlongBio(t *testing.T) {
 	s := newTestService(nil, nil)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Bio: strings.Repeat("a", entity.MaxBioLength+1)})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Bio: ptr(strings.Repeat("a", entity.MaxBioLength+1))})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -219,7 +217,7 @@ func TestPutUser_AssignsAGeneratedUsername(t *testing.T) {
 	repo := newFakeUserRepository()
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -266,7 +264,7 @@ func TestPutUser_RetriesWhenAGeneratedUsernameCollides(t *testing.T) {
 		return nil
 	}
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -288,7 +286,7 @@ func TestPutUser_GivesUpAfterRepeatedCollisions(t *testing.T) {
 	repo.beforePut = func(entity.User) error { return repository.ErrUsernameTaken }
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -308,7 +306,7 @@ func TestPutUser_OmittedUsernameIsUnchanged(t *testing.T) {
 	repo.seed(entity.User{ID: "caller", Username: "sly-dancing-monkey"})
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Bio: "new bio"})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Bio: ptr("new bio")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -325,7 +323,7 @@ func TestPutUser_RenameReleasesTheOldUsername(t *testing.T) {
 	repo.seed(entity.User{ID: "caller", Username: "sly-dancing-monkey"})
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Username: ptr("bold-leaping-lynx")})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Username: ptr("bold-leaping-lynx")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -348,7 +346,7 @@ func TestPutUser_RejectsAUsernameHeldByAnotherUser(t *testing.T) {
 	repo.seed(entity.User{ID: "someone", Username: "sly-dancing-monkey"})
 	s := newTestService(nil, repo)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Username: ptr("Sly-Dancing-Monkey")})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Username: ptr("Sly-Dancing-Monkey")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -365,7 +363,7 @@ func TestPutUser_RejectsAUsernameHeldByAnotherUser(t *testing.T) {
 func TestPutUser_RejectsAMalformedUsername(t *testing.T) {
 	s := newTestService(nil, nil)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Username: ptr("sly dancing monkey")})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Username: ptr("sly dancing monkey")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -383,7 +381,7 @@ func TestGetUser(t *testing.T) {
 	s := newTestService(nil, repo)
 
 	rec := httptest.NewRecorder()
-	s.GetUser(rec, usernameHTTPRequest("sly-dancing-monkey"))
+	routed(s).ServeHTTP(rec, usernameHTTPRequest("sly-dancing-monkey"))
 
 	if rec.Result().StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Result().StatusCode, http.StatusOK)
@@ -404,7 +402,7 @@ func TestGetUser_IgnoresCase(t *testing.T) {
 	s := newTestService(nil, repo)
 
 	rec := httptest.NewRecorder()
-	s.GetUser(rec, usernameHTTPRequest("sly-DANCING-monkey"))
+	routed(s).ServeHTTP(rec, usernameHTTPRequest("sly-DANCING-monkey"))
 
 	if rec.Result().StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Result().StatusCode, http.StatusOK)
@@ -416,7 +414,7 @@ func TestGetUser_NotFound(t *testing.T) {
 	s := newTestService(nil, nil)
 
 	rec := httptest.NewRecorder()
-	s.GetUser(rec, usernameHTTPRequest("sly-dancing-monkey"))
+	routed(s).ServeHTTP(rec, usernameHTTPRequest("sly-dancing-monkey"))
 
 	if rec.Result().StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Result().StatusCode, http.StatusNotFound)
@@ -431,7 +429,7 @@ func TestGetUser_RejectsAMalformedName(t *testing.T) {
 	s := newTestService(nil, repo)
 
 	rec := httptest.NewRecorder()
-	s.GetUser(rec, usernameHTTPRequest("no"))
+	routed(s).ServeHTTP(rec, usernameHTTPRequest("no"))
 
 	if rec.Result().StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Result().StatusCode, http.StatusBadRequest)
@@ -567,7 +565,7 @@ func TestGetCurrentUser_NotFound(t *testing.T) {
 func TestPutUser_RejectsAReservedUsername(t *testing.T) {
 	s := newTestService(nil, nil)
 
-	body := userRequestBody(t, &appv1.UpdateCurrentUserRequest{Username: ptr("me")})
+	body := userRequestBody(t, &api.UpdateCurrentUserRequest{Username: ptr("me")})
 	rec := httptest.NewRecorder()
 	s.PutUser(rec, selfHTTPRequest(http.MethodPut, "caller", body))
 
@@ -617,7 +615,7 @@ func TestPutUser_OmittedUsernameKeepsTheStoredName(t *testing.T) {
 	}
 }
 
-// The response body is the contract, so these two pin it literally rather than field by field: a
+// The response body is the contract, so these two pin it whole rather than field by field: a
 // change to what a client receives shows up here rather than as a frontend bug.
 func TestGetUser_WireBody(t *testing.T) {
 	at := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
@@ -626,12 +624,10 @@ func TestGetUser_WireBody(t *testing.T) {
 	s := newTestService(nil, repo)
 
 	rec := httptest.NewRecorder()
-	s.GetUser(rec, usernameHTTPRequest("sly-dancing-monkey"))
+	routed(s).ServeHTTP(rec, usernameHTTPRequest("sly-dancing-monkey"))
 
 	want := `{"username":"sly-dancing-monkey","bio":"hi","createdAt":"2026-01-02T03:04:05Z","updatedAt":"2026-01-02T03:04:05Z"}`
-	if got := strings.TrimSpace(rec.Body.String()); got != want {
-		t.Errorf("body =\n%s\nwant\n%s", got, want)
-	}
+	assertJSONBody(t, rec, want)
 }
 
 func TestGetCurrentUser_WireBody(t *testing.T) {
@@ -644,9 +640,7 @@ func TestGetCurrentUser_WireBody(t *testing.T) {
 	s.GetCurrentUser(rec, selfHTTPRequest(http.MethodGet, "caller", nil))
 
 	want := `{"id":"caller","username":"calm-smiling-kestrel","bio":"","createdAt":"2026-01-02T03:04:05Z","updatedAt":"2026-01-02T03:04:05Z"}`
-	if got := strings.TrimSpace(rec.Body.String()); got != want {
-		t.Errorf("body =\n%s\nwant\n%s", got, want)
-	}
+	assertJSONBody(t, rec, want)
 }
 
 // eraseFixture is an account ("caller") with a public and a private note, beside another
@@ -719,7 +713,7 @@ func TestDeleteUser_RetryFinishesAPartialErasure(t *testing.T) {
 	f.assertErased(t)
 }
 
-// Every write route reads its body through readProto, so one route stands for all of them.
+// Every write route reads its body through readJSON, so one route stands for all of them.
 func TestPutUser_RejectsOversizedBody(t *testing.T) {
 	s := newTestService(nil, newFakeUserRepository())
 

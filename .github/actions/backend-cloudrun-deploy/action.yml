@@ -23,8 +23,8 @@ outputs:
 runs:
   using: "composite"
   steps:
-    # A release whose image is already live (an unchanged backend re-tagged on merge, decision 26)
-    # has nothing to deploy. A missing service or image reads as different, so it deploys.
+    # Skips the deploy when the service already runs this image's digest (an unchanged backend on
+    # promotion, or a rollback to what is live). A missing service or image reads as different.
     - id: live
       name: Compare With Live Revision
       shell: bash

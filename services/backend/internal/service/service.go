@@ -6,6 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/getkin/kin-openapi/openapi3"
+
+	"github.com/edgorman/webapp-template/services/backend/internal/api"
 	"github.com/edgorman/webapp-template/services/backend/internal/repository"
 )
 
@@ -36,6 +39,50 @@ type Service struct {
 	// Handler() must not hand a caller two budgets. See ratelimit.go for what each one bounds.
 	ipLimiter     *rateLimiter
 	callerLimiter *rateLimiter
+	// authModes is how each route treats a credential, keyed by its mux pattern ("GET /notes/{id}").
+	authModes map[string]authMode
+}
+
+// authMode is how a route treats a credential. It is read from the route's `security` in
+// packages/api/openapi.yaml, so the contract is the one place that says which routes need a caller.
+type authMode int
+
+const (
+	// authNone routes never look at a credential: /health and /debug.
+	authNone authMode = iota
+	// authOptional routes verify a credential if one is sent, for reads that admit anonymous callers
+	// but still authorize a signed-in one. Their `security` lists an empty requirement ({}).
+	authOptional
+	// authRequired routes need a verified caller, and meter it per account.
+	authRequired
+)
+
+// routeAuthModes reads every operation's authMode out of the embedded OpenAPI spec.
+func routeAuthModes() (map[string]authMode, error) {
+	spec, err := api.GetSwagger()
+	if err != nil {
+		return nil, err
+	}
+
+	modes := make(map[string]authMode)
+	for path, item := range spec.Paths.Map() {
+		for method, operation := range item.Operations() {
+			modes[method+" "+path] = authModeOf(operation.Security)
+		}
+	}
+	return modes, nil
+}
+
+func authModeOf(security *openapi3.SecurityRequirements) authMode {
+	if security == nil || len(*security) == 0 {
+		return authNone
+	}
+	for _, requirement := range *security {
+		if len(requirement) == 0 {
+			return authOptional
+		}
+	}
+	return authRequired
 }
 
 func New(
@@ -44,7 +91,15 @@ func New(
 	users repository.UserRepository,
 	verifier repository.TokenVerifier,
 ) *Service {
+	// The spec is generated into the binary, so failing to read it is a broken build, not a
+	// condition to handle at runtime.
+	modes, err := routeAuthModes()
+	if err != nil {
+		panic("service: reading the embedded OpenAPI spec: " + err.Error())
+	}
+
 	return &Service{
+		authModes:     modes,
 		cfg:           cfg,
 		notes:         notes,
 		users:         users,
@@ -62,40 +117,12 @@ func (s *Service) logger() *slog.Logger {
 	return slog.Default()
 }
 
-// Handler returns the fully-wired API, ready to serve.
+// Handler returns the fully-wired API, ready to serve. The routes come from the generated
+// api.HandlerWithOptions, so a route exists exactly when packages/api/openapi.yaml declares it and
+// this Service implements the operation (the compiler checks api.ServerInterface).
 func (s *Service) Handler() http.Handler {
-	// Every write requires a verified caller, since it always resolves to a specific owner. The
-	// per-account budget sits inside the verification rather than in front of it, because the
-	// account it meters is not known until the credential has been checked; an unverified flood is
-	// already bounded by the per-IP budget below, which is what keeps it from reaching the
-	// verifier in the first place.
-	authed := func(h http.HandlerFunc) http.Handler {
-		return requireAuth(s.verifier, rateLimited(s.callerLimiter, callerKey, h))
-	}
-	// Reads admit anonymous callers. Visibility is enforced downstream: entity.Note.CanBeReadBy
-	// treats the zero Caller as seeing only public notes, and a profile has nothing to hide.
-	optional := func(h http.HandlerFunc) http.Handler {
-		return optionalAuth(s.verifier, h)
-	}
-
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", s.Debug)
-	mux.HandleFunc("/debug", s.Debug)
-	// The example resource. A new one is registered the same way: reads optional, writes authed,
-	// and a line for each action in entity/access.go's policy table.
-	mux.Handle("GET /notes", optional(s.ListNotes))
-	mux.Handle("GET /notes/{id}", optional(s.GetNote))
-	mux.Handle("POST /notes", authed(s.CreateNote))
-	mux.Handle("PUT /notes/{id}", authed(s.UpdateNote))
-	mux.Handle("DELETE /notes/{id}", authed(s.DeleteNote))
-	// A profile is addressed by its username, never by the Google `sub` it is keyed by, so the id
-	// stays an internal detail rather than a public handle. "me" is the one exception, for a client
-	// that holds a credential but does not yet know which name it was given; ServeMux prefers that
-	// literal over the wildcard, so it wins without any ordering care here.
-	mux.Handle("GET /users/me", authed(s.GetCurrentUser))
-	mux.Handle("PUT /users/me", authed(s.PutUser))
-	mux.Handle("DELETE /users/me", authed(s.DeleteUser))
-	mux.Handle("GET /users/{username}", optional(s.GetUser))
+	api.HandlerWithOptions(s, api.StdHTTPServerOptions{BaseRouter: mux, ErrorHandlerFunc: badRequest})
 
 	// The per-IP budget wraps the whole mux, so it applies to the routes that admit anonymous
 	// callers too - the ones with no account to meter - and to a request for a path that does not
@@ -106,5 +133,30 @@ func (s *Service) Handler() http.Handler {
 	// Being outermost also means a preflight is answered without spending a token, and that a 429
 	// still carries the CORS headers, without which the browser would show the frontend a network
 	// error instead of the reason it was refused.
-	return withCORS(s.cfg.AllowedOrigin, rateLimited(s.ipLimiter, clientIP, mux.ServeHTTP))
+	return withCORS(s.cfg.AllowedOrigin, rateLimited(s.ipLimiter, clientIP, s.authenticate(mux)))
+}
+
+// authenticate applies each route's authMode before the mux dispatches to it, so a bad credential
+// is refused before the route's parameters are even read.
+//
+// Every write requires a verified caller, since it always resolves to a specific owner. The
+// per-account budget sits inside the verification rather than in front of it, because the account
+// it meters is not known until the credential has been checked; an unverified flood is already
+// bounded by the per-IP budget, which is what keeps it from reaching the verifier in the first
+// place. Reads that admit anonymous callers are authorized downstream: entity.Note.CanBeReadBy
+// treats the zero Caller as seeing only public notes, and a profile has nothing to hide.
+func (s *Service) authenticate(mux *http.ServeMux) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// The pattern is empty for a path or method the mux does not serve, which is authNone: the
+		// mux answers it with its own 404 or 405.
+		_, pattern := mux.Handler(r)
+		switch s.authModes[pattern] {
+		case authRequired:
+			requireAuth(s.verifier, rateLimited(s.callerLimiter, callerKey, mux.ServeHTTP))(w, r)
+		case authOptional:
+			optionalAuth(s.verifier, mux.ServeHTTP)(w, r)
+		default:
+			mux.ServeHTTP(w, r)
+		}
+	}
 }

@@ -25,6 +25,12 @@ variable "backend_initial_image" {
   default     = "us-docker.pkg.dev/cloudrun/container/hello"
 }
 
+variable "backend_max_instances" {
+  description = "Most Cloud Run instances the backend may scale out to. 1 on purpose: the rate limiter in services/backend/internal/service/ratelimit.go counts in memory, so N instances admit N times every budget. Raise it only after moving those counters to a store every instance shares."
+  type        = number
+  default     = 1
+}
+
 variable "ci_service_account" {
   description = "Email of the CI service account infrastructure/root creates, granted what CI needs on this environment's resources. The workflows pass the SERVICE_ACCOUNT Actions variable."
   type        = string
