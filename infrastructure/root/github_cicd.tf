@@ -133,8 +133,8 @@ locals {
     GCP_PROJECT_PREFIX = var.gcp_project_prefix
     GCP_REGION         = var.gcp_provider_region
     SITE_NAME          = var.site_name
-    STAGING_URL        = "https://${lookup(var.frontend_hostnames, "stag", cloudflare_pages_project.frontend["stag"].subdomain)}"
-    PRODUCTION_URL     = "https://${lookup(var.frontend_hostnames, "prod", cloudflare_pages_project.frontend["prod"].subdomain)}"
+    STAGING_URL        = "https://${local.frontend_hosts["stag"]}"
+    PRODUCTION_URL     = "https://${local.frontend_hosts["prod"]}"
   }
 }
 

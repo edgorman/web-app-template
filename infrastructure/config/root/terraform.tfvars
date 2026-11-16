@@ -9,8 +9,8 @@ github_repository_owner = "your-github-user"
 github_repository_name  = "your-repo"
 
 site_name = "My App"
-# No custom domain: the frontends are served at https://myapp-stag.pages.dev and
-# https://myapp-prod.pages.dev. To add one, set cloudflare_zone and frontend_hostnames, e.g.
+# No custom domain: the frontends are served at https://myapp-stag.<your-account>.workers.dev and
+# https://myapp-prod.<your-account>.workers.dev. To add one, set cloudflare_zone and frontend_hostnames, e.g.
 # cloudflare_zone    = "example.com"
 # frontend_hostnames = { stag = "staging.example.com", prod = "example.com" }
 

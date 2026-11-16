@@ -96,7 +96,7 @@ jobs:
   # both buckets. It only builds when the frontend is affected; otherwise it publishes base_sha's
   # folder again under this commit (or builds, if that folder has aged out). Either way it deploys,
   # so staging always shows this commit's version. One folder feeds both buckets and Cloudflare
-  # Pages, so the live staging site is never different from what's stored.
+  # Workers, so the live staging site is never different from what's stored.
   services-frontend:
     # services-backend only succeeds once `changed` and infrastructure-staging have; infrastructure-root
     # is checked on its own because infrastructure-staging skips (rather than fails) after it when
@@ -265,7 +265,7 @@ jobs:
           service_account: ${{ vars.SERVICE_ACCOUNT }}
 
   # The deployed frontend and backend together, signed out and read-only, against the live
-  # staging site - the defects that sit between components (config.json, CORS, the Pages worker,
+  # staging site - the defects that sit between components (config.json, CORS, the Worker,
   # routing) and so pass every unit test. services-frontend already waits on services-backend, so
   # this runs once both are live, and pre-release waits on it: a failing smoke test leaves this
   # merge without a release candidate.

@@ -1,10 +1,10 @@
 /**
  * @vitest-environment node
  */
-// public/_worker.js, the Cloudflare Pages worker that serves crawlers. Node rather than
+// worker/index.js, the Cloudflare Worker that serves crawlers. Node rather than
 // jsdom, for the fetch API's Request/Response the worker is written against.
 // @ts-expect-error -- plain JS that ships to Cloudflare as-is, so it has no declarations.
-import worker from '../public/_worker.js'
+import worker from '../worker/index.js'
 import { snippetFrom } from './lib/format'
 
 const SHELL = '<!doctype html><html><head><title>Example App</title></head><body><div id="root"></div></body></html>'

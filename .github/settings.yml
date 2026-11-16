@@ -7,7 +7,7 @@
 repository:
   # General
   name: webapp-template
-  description: Template for a full-stack web app - Go on Cloud Run, React on Cloudflare Pages, Terraform, moon, trunk-based CI/CD.
+  description: Template for a full-stack web app - Go on Cloud Run, React on Cloudflare Workers, Terraform, moon, trunk-based CI/CD.
   # A GitHub template repository, so "Use this template" creates new repositories from it. A
   # repository made from it sets this back to false along with its own name (docs/new-repo.md).
   is_template: true

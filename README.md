@@ -6,7 +6,7 @@
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0-6BA539?logo=openapiinitiative&logoColor=white)](packages/api)
 [![Terraform](https://img.shields.io/badge/Terraform-1.15-844FBA?logo=terraform&logoColor=white)](infrastructure)
 [![Cloud Run](https://img.shields.io/badge/GCP-Cloud_Run-4285F4?logo=googlecloud&logoColor=white)](infrastructure)
-[![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare&logoColor=white)](infrastructure)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](infrastructure)
 [![moon](https://img.shields.io/badge/moon-2.5-6F53F3)](https://moonrepo.dev)
 
 A GitHub template for a small, cloud-deployed full-stack web app: a trunk-based monorepo with CI/CD and infrastructure-as-code already wired up, and services stripped down to sign-in, profiles and one example resource (`notes`) to copy or delete.
@@ -18,7 +18,7 @@ A GitHub template for a small, cloud-deployed full-stack web app: a trunk-based 
 | Path | What |
 | --- | --- |
 | `services/backend` | Go API (Firestore, Google sign-in), shipped as a container to GCP Cloud Run |
-| `services/frontend` | Vite/React single-page app, deployed to Cloudflare Pages |
+| `services/frontend` | Vite/React single-page app, deployed to Cloudflare Workers as static assets |
 | `packages/api` | OpenAPI API contract; `moon run packages/api:generate` writes the Go server code and the TypeScript types |
 | `infrastructure` | Terraform for the shared root, staging and prod environments (GCP, Cloudflare, GitHub) |
 | `.github` | Workflows and composite actions: PR checks, staging deploy on merge, release promotion to prod |
