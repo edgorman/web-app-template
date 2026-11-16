@@ -118,8 +118,9 @@ The client address is the **rightmost** `X-Forwarded-For` entry: anything to the
 whatever the client chose to send, so metering the leftmost entry would let a caller dodge the
 limit with a random header per request. A refused request is a `429` with a `Retry-After` header.
 
-Buckets live in the memory of one process, so these are per-*instance* budgets: revisit them before
-running more than one instance.
+Buckets live in the memory of one process, so these are per-*instance* budgets. Terraform therefore
+caps Cloud Run at one instance (`backend_max_instances`, `infrastructure/env/variables.tf`); move the
+counters to a store every instance shares before raising it.
 
 ## Development
 

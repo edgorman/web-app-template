@@ -17,7 +17,7 @@ The Go API on Cloud Run. `README.md` here has the API, configuration, how to run
 ## Rate Limiting
 
 - Every route is behind the per-IP budget, and every write behind the per-account one. A route that calls something paid gets its own, tighter budget.
-- Rate-limit buckets are per instance: revisit them before running more than one instance.
+- Rate-limit buckets are per instance, so Cloud Run is capped at one (`backend_max_instances` in `infrastructure/env/variables.tf`). Move the counters to a shared store before raising the cap.
 
 ## Container image
 

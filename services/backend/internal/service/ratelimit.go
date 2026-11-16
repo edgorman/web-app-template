@@ -13,8 +13,9 @@ import (
 
 // Every budget below is held in memory by one process, so it is a per-instance budget: a service
 // running on N Cloud Run instances admits N times these numbers, and a caller whose requests land
-// on different instances is metered separately on each. That is deliberate for now - this service
-// runs as a single instance - and it is the one thing to revisit before scaling out, where the
+// on different instances is metered separately on each. That is deliberate for now - Terraform caps
+// the service at one instance (backend_max_instances) - and it is the one thing to revisit before
+// raising that cap, where the
 // counters would have to move to a store every instance shares (Firestore, Redis). Nothing outside
 // this file knows where a bucket lives, so that change is contained to rateLimiter.
 var (
