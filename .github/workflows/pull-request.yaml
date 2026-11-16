@@ -88,7 +88,7 @@ jobs:
       matrix:
         include:
           - check: lint-check
-            targets: ':format :lint :vet :typecheck :build :validate root:wire-types root:projects-covered root:go-version-sync'
+            targets: ':format :lint :vet :typecheck :build :validate root:wire-types root:projects-covered root:go-version-sync root:decision-links'
           - check: test
             targets: ':test services/backend:image'
           - check: protos-drift

@@ -19,7 +19,7 @@ A trunk-based monorepo: a static frontend, containerized backend services, Terra
 - `services/backend/` - Go API for Cloud Run: sign-in, profiles and an example `notes` resource to copy. A second binary goes under `cmd/`, as its own moon project, image and service.
 - `services/frontend/` - Vite/React app on Cloudflare Pages.
 - `packages/protos/` - the `.proto` contract both services generate from.
-- `.github/` - workflows, composite actions (`actions/`), and `settings.yml` (repository settings and rulesets, applied by the Probot Settings app).
+- `.github/` - workflows, composite actions (`actions/`), and `settings.yml` (repository settings and branch protection, applied by the Probot Settings app).
 - `docs/` - [`start-here.md`](docs/start-here.md) and the decision records.
 
 Each language's manifest lives in the directory that owns its code; the root declares none. Shared Go code gets a second module (`packages/go`) ([1](docs/decisions/0001-manifests-live-with-their-code.md)). Neither service has a Makefile: CI runs through moon, and locally you call each language's own tooling.

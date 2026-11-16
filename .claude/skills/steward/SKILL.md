@@ -12,7 +12,7 @@ Rules live in the `AGENTS.md` files and their reasoning in `docs/decisions/`; th
 Run what CI runs, from the repo root, against `origin/main` (`git fetch origin main` first):
 
 ```
-moon ci --base origin/main :format :lint :vet :typecheck :build root:wire-types root:projects-covered root:go-version-sync
+moon ci --base origin/main :format :lint :vet :typecheck :build root:wire-types root:projects-covered root:go-version-sync root:decision-links
 moon ci --base origin/main :test
 moon ci --base origin/main packages/protos:drift
 moon ci --base origin/main packages/protos:breaking
@@ -31,12 +31,13 @@ All seven jobs of `.github/workflows/pull-request.yaml` and both jobs of `.githu
 | `lint-check` → `:validate` | `terraform validate` | Fix the HCL. You can't reproduce it locally, so read the log |
 | `lint-check` → `root:wire-types` | An `export interface` in `services/frontend/src/lib/api.ts`, or a `json:"..."` tag in `services/backend/internal/service` outside `debug.go` | Use the generated type from `src/gen` / `internal/gen`. If the type doesn't exist yet, add the message to a `.proto` |
 | `lint-check` → `root:projects-covered` | A `services/*` or `packages/*` folder has no `moon.yml` | Add one, modelled on a sibling |
+| `lint-check` → `root:decision-links` | A Markdown file links a `docs/decisions/NNNN-*.md` that doesn't exist | Fix the link; the record's number and filename are in `docs/decisions/README.md` |
 | `lint-check` → `root:go-version-sync` | `.prototools`'s `go` pin and `services/backend/go.mod`'s `go` line differ | Change both. Also bump `FROM golang:X-alpine` in `services/backend/Dockerfile` |
 | `test` → `:test` | `go test` or Vitest | A real failure. Root-cause it |
 | `test` → `services/backend:image` | The Docker build | Usually a Go version or a file missing from the build context |
 | `protos-drift` | Generated code doesn't match the `.proto` | `cd packages/protos && buf generate`, then commit `services/backend/internal/gen` and `services/frontend/src/gen`. **Never hand-edit either folder** |
 | `pr-title` | The PR title isn't a Conventional Commit: `type(scope)?!?: description`, type one of `feat`, `fix`, `build`, `chore`, `ci`, `docs`, `perf`, `refactor`, `revert`, `style`, `test` (root `AGENTS.md`) | Edit the title. The check reruns on the edit, no push needed |
-| `protos-breaking` → `packages/protos:breaking` | `buf breaking` against `origin/main` found a wire break (a field removed, renumbered or retyped, ...) | Make the change additive (see `docs/decisions/0010-wire-changes-across-releases.md`). If the break is deliberate, ask the user: marking the PR breaking (`!` in the title or a `BREAKING CHANGE:` footer in the body) skips the check and bumps major. Local repro: `moon run packages/protos:breaking` |
+| `protos-breaking` → `packages/protos:breaking` | `buf breaking` against `origin/main` found a wire break (a field removed, renumbered or retyped, ...) | Make the change additive (see `docs/decisions/0009-wire-changes-across-releases.md`). If the break is deliberate, ask the user: marking the PR breaking (`!` in the title or a `BREAKING CHANGE:` footer in the body) skips the check and bumps major. Local repro: `moon run packages/protos:breaking` |
 | `changed` | `moon query affected` failed | A `moon.yml` is invalid. `MOON_BASE=origin/main moon query affected` reproduces it |
 | `infrastructure-{root,staging,prod}` | `terraform init/fmt/validate/plan` with real credentials | See below |
 

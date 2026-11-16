@@ -63,3 +63,19 @@ tasks:
     inputs:
       - '/.prototools'
       - '/services/backend/go.mod'
+
+  # Every docs/decisions/NNNN-*.md a Markdown file links must exist, so a renumbered or mistyped
+  # record fails here rather than leaving a dead link in an AGENTS.md or skill.
+  decision-links:
+    description: 'Every decision record linked from a Markdown file exists'
+    script: |
+      missing=0
+      while IFS=: read -r file link; do
+        if [ ! -f "docs/decisions/${link#decisions/}" ]; then
+          echo "::error file=$file::links ${link}, which does not exist in docs/decisions/."
+          missing=1
+        fi
+      done < <(grep -rEo --include='*.md' --exclude-dir=node_modules --exclude-dir=.git 'decisions/[0-9]{4}-[a-z0-9-]+\.md' . | sed 's|^\./||')
+      exit "$missing"
+    inputs:
+      - '/**/*.md'

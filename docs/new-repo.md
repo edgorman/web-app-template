@@ -8,7 +8,7 @@ You need a GCP billing account, a Cloudflare account, and the toolchain from [`s
 
 Click **Use this template** on GitHub. Then, in the new repository:
 
-- `.github/settings.yml`: set `name` and `description`, and set `is_template` to `false` (or delete the line). The [Settings app](https://github.com/apps/settings) applies this file, and the branch protection in it, once installed on the repository.
+- `.github/settings.yml`: set `name` and `description`, and set `is_template` to `false` (or delete the line). The [Settings app](https://github.com/apps/settings) applies this file, and the branch protection in it, once installed on the repository. Branch protection is only available on a public repository or a paid plan: on a private repository on GitHub Free the app cannot apply it, so nothing stops a direct push to `main`.
 - `.github/CODEOWNERS`: replace the owner with yours.
 - `LICENSE`: your name, or your own licence.
 - `README.md`: retitle it with your project's name and replace the template intro (and its **Use this template** line) with what your project does.
