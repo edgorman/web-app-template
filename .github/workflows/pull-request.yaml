@@ -81,6 +81,8 @@ jobs:
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
+          # moon setup installs proto and every tool before any task starts (decision 35).
+          auto-setup: true
           cache: false # decision 35
       # The Firestore adapter's tests skip without an emulator: this is the jar `gcloud emulators
       # firestore` runs, checksummed, on the runner's Java 21.
