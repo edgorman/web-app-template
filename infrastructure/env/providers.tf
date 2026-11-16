@@ -8,11 +8,6 @@ terraform {
       source  = "hashicorp/google"
       version = "8.10.0"
     }
-    # Beta-only: google_firebase_project (firestore.tf) isn't in the GA google provider yet.
-    google-beta = {
-      source  = "hashicorp/google-beta"
-      version = "8.10.0"
-    }
   }
 
   backend "gcs" {
@@ -25,24 +20,12 @@ provider "google" {
   region  = var.gcp_region
 }
 
-provider "google-beta" {
-  project = var.gcp_project_id
-  region  = var.gcp_region
-}
-
-# CI's service account lives in the root project, so GCP bills Firebase/Firestore quota to root
-# rather than the project whose APIs are actually enabled; user_project_override redirects it (and
+# CI's service account lives in the root project, so GCP bills Firestore Admin API quota to root
+# rather than the project whose API is actually enabled; user_project_override redirects it (and
 # needs serviceusage.services.use, granted in infrastructure/root/github_cicd.tf). Kept on an alias
 # so enabling the APIs themselves doesn't depend on a project whose APIs aren't enabled yet.
 provider "google" {
-  alias                 = "firebase"
-  project               = var.gcp_project_id
-  region                = var.gcp_region
-  user_project_override = true
-}
-
-provider "google-beta" {
-  alias                 = "firebase"
+  alias                 = "quota"
   project               = var.gcp_project_id
   region                = var.gcp_region
   user_project_override = true

@@ -3,26 +3,10 @@ resource "google_project_service" "firestore" {
   service = "firestore.googleapis.com"
 }
 
-# Vestigial: nothing needs Firebase now that the backend verifies sign-in itself, but Firebase
-# cannot be un-added from a project, so removing these would only drop them from state.
-resource "google_project_service" "firebase" {
-  project = var.gcp_project_id
-  service = "firebase.googleapis.com"
-}
-
-# Beta-only, and uses the quota-overriding provider alias (see providers.tf).
-resource "google_firebase_project" "default" {
-  provider = google-beta.firebase
-
-  depends_on = [google_project_service.firebase]
-
-  project = var.gcp_project_id
-}
-
 resource "google_firestore_database" "database" {
-  provider = google.firebase
+  provider = google.quota
 
-  depends_on = [google_project_service.firestore, google_firebase_project.default]
+  depends_on = [google_project_service.firestore]
 
   project     = var.gcp_project_id
   name        = "(default)"

@@ -42,15 +42,6 @@ resource "google_project_iam_member" "github_actions_datastore_admin" {
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
 
-# google_firebase_project needs firebase.projects.update, which roles/editor omits.
-resource "google_project_iam_member" "github_actions_firebase_admin" {
-  for_each = local.all_projects
-
-  project = each.value.project_id
-  role    = "roles/firebase.admin"
-  member  = "serviceAccount:${google_service_account.github_actions.email}"
-}
-
 # backend_runtime_actas in env/cloud_run.tf needs iam.serviceAccounts.setIamPolicy, which is
 # distinct from actAs itself and covered by none of the roles above.
 resource "google_project_iam_member" "github_actions_service_account_admin" {
