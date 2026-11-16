@@ -1,16 +1,8 @@
 name: 'Apply Prod Infrastructure (Manual)'
 
-# This is an escape hatch, not the normal path. Prod infrastructure is meant to change through
-# Promote Release (`promote-release.yaml`), where a `terraform apply` on `the prod project`
-# runs as step 1 of promoting a specific, already-reviewed release - so infra always lands
-# alongside a deliberate decision to ship a commit, with the accumulated plan visible on the
-# release PR first. This workflow exists only to backfill a newly-added per-environment
-# resource (a bucket, a registry, an IAM binding, ...) into prod ahead of that, for the narrow case
-# where `infrastructure/env` gained something new that a merge-time job now assumes already exists
-# in prod - the trunk-based model's staging-applies-on-merge / prod-applies-on-promotion split means
-# prod can otherwise lag main by however long it takes for someone to promote, and a merge in that
-# gap has nothing to write into. Reach for this only to close that specific gap, and prefer letting
-# the next promotion carry the change whenever the timing isn't forcing your hand.
+# An escape hatch, not the normal path: prod infrastructure changes through a release's promotion
+# (promote-release.yaml). This only backfills a new per-environment resource into prod ahead of
+# that, when a merge-time job now assumes it exists there (decision 17).
 on:
   workflow_dispatch:
     inputs:
@@ -22,8 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  # Shared with Promote Release: both mutate the same prod Terraform state, so one must queue
-  # behind the other rather than risk a concurrent apply.
+  # Shared with Promote Release: both mutate prod's Terraform state, so one queues behind the other.
   group: promote-release-main
   cancel-in-progress: false
 
@@ -54,7 +45,6 @@ jobs:
         with:
           terraform_directory: 'infrastructure/env'
           config_directory: 'infrastructure/config/prod'
-          # One client ID, defined in infrastructure/root, serves every environment.
           secrets: |
             TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
             TF_VAR_ci_service_account=${{ vars.PROMOTE_SERVICE_ACCOUNT }}

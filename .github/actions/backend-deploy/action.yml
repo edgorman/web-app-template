@@ -55,9 +55,8 @@ runs:
         echo "staging_ref=${{ inputs.gcp_region }}-docker.pkg.dev/${{ inputs.gcp_project_id }}/backend/${{ inputs.image_name }}:${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
         echo "prod_ref=${{ inputs.gcp_region }}-docker.pkg.dev/${{ inputs.prod_project_id }}/backend/${{ inputs.image_name }}:${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
-    # One build feeds both registries, so promotion later has nothing to rebuild or copy, only a
-    # `gcloud run deploy` against the tag already sitting in prod's own registry. The layer cache
-    # makes a build with unchanged dependencies (and unchanged sources) cheap.
+    # One build feeds both registries; promotion deploys the tag already in prod's registry (decision
+    # 15). The layer cache keeps an unchanged build cheap (decision 29).
     - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
     - name: Build And Push Image
@@ -71,7 +70,7 @@ runs:
           ${{ steps.image.outputs.staging_ref }}
           ${{ steps.image.outputs.prod_ref }}
         push: true
-        # A plain single-platform image, as before: no attestation manifest beside it.
+        # A plain single-platform image: no attestation manifest beside it.
         provenance: false
         cache-from: type=gha,scope=backend-${{ inputs.image_name }}
         cache-to: type=gha,mode=max,scope=backend-${{ inputs.image_name }}

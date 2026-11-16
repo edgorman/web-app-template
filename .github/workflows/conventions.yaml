@@ -1,7 +1,7 @@
 name: 'Conventions'
 
-# Separate from pull-request.yaml so a title edit reruns only these two cheap checks, not the
-# whole build. `edited` covers the title (and body, for the BREAKING CHANGE: footer).
+# Separate from pull-request.yaml so a title edit reruns only these cheap checks. `edited` covers
+# the title and the body (for the BREAKING CHANGE: footer).
 on:
   pull_request:
     branches:
@@ -17,9 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The squash commit subject is the PR title, and versioning parses it (root AGENTS.md, Commit
-  # Message Convention). In a merge queue the title was already checked on the PR, so this
-  # reports skipped, which counts as passing.
+  # The squash commit subject is the PR title, and versioning parses it. Skipped in a merge queue,
+  # where the title was already checked.
   pr-title:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -35,20 +34,19 @@ jobs:
             exit 1
           fi
 
-  # oasdiff against main's spec, unless the PR declares itself breaking, so a deliberate wire break
-  # also bumps major. In a merge queue the squash commit carries the PR title and body, so the
-  # same markers are read from it.
+  # oasdiff against main's spec, unless the PR is marked breaking (`!` or `BREAKING CHANGE:`, read from
+  # the squash commit in a merge queue), which also bumps major (decision 30).
   api-breaking:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        # Full history, so origin/main is there for the task to read main's spec from.
+        # Full history, so origin/main is there to read main's spec from.
         with:
           fetch-depth: 0
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
-          cache: false # see pull-request.yaml's `changed` job for why
+          cache: false # decision 35
       - name: moon ci
         shell: bash
         env:

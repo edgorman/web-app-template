@@ -4,8 +4,8 @@ tags: ['contract']
 
 fileGroups:
   sources: ['openapi.yaml', 'package.json', 'package-lock.json']
-  # A leading '/' makes these workspace-relative rather than project-relative, so a hand edit to
-  # either generated output - not just a spec edit - marks drift affected too.
+  # A leading '/' makes these workspace-relative, so a hand edit to generated output marks drift
+  # affected too.
   generated:
     - '/services/backend/oapi-codegen.yaml'
     - '/services/backend/internal/api/**/*'
@@ -17,8 +17,8 @@ tasks:
     inputs: ['package.json', 'package-lock.json']
     options:
       internal: true
-  # Both generators, from the one spec. The Go one is a `go tool` pinned in services/backend/go.mod;
-  # the TypeScript one is pinned in this project's package.json. Run from this project's root.
+  # Both generators, from the one spec: `oapi-codegen` is a `go tool` pinned in go.mod,
+  # `openapi-typescript` is pinned in this project's package.json.
   generate:
     script: |
       (cd ../../services/backend && go tool oapi-codegen -config oapi-codegen.yaml ../../packages/api/openapi.yaml)
@@ -28,8 +28,8 @@ tasks:
     options:
       cache: false
   drift:
-    # Regenerates and fails on any difference from what is committed. `git status --porcelain`, not
-    # `git add -A`, so a local run never stages the caller's working tree - only reads it.
+    # Regenerates and fails on any difference from what is committed; `git status`, not `git add`, so
+    # a local run never stages anything.
     script: |
       npx openapi-typescript openapi.yaml -o ../../services/frontend/src/gen/schema.d.ts
       (cd ../../services/backend && go tool oapi-codegen -config oapi-codegen.yaml ../../packages/api/openapi.yaml)
@@ -41,9 +41,8 @@ tasks:
     options:
       cache: false
   breaking:
-    # Against main's copy of the spec. The `conventions` workflow skips it for a PR marked breaking
-    # (`!` in the title or a `BREAKING CHANGE:` footer). Not cached: main moves without this
-    # project's inputs changing. A spec main does not have yet (the first one) has nothing to break.
+    # Against main's copy of the spec, skipped for a PR marked breaking (conventions.yaml). Not cached:
+    # main moves without this project's inputs changing. No spec on main yet means nothing to break.
     script: |
       base="$(mktemp)"
       git show origin/main:packages/api/openapi.yaml > "$base" 2>/dev/null || { echo 'No spec on origin/main yet; nothing to compare.'; exit 0; }

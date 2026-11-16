@@ -32,9 +32,8 @@ runs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-    # Inputs arrive through the environment rather than as ${{ }} substitutions into the script:
-    # an expression is pasted into the source text before bash parses it, so a value carrying a
-    # quote or a $(...) would be executed rather than read. Through the environment it stays data.
+    # Inputs pass through the environment, not ${{ }} substitution, so a value stays data (see
+    # terraform-pull-request).
     - id: fetch-secrets
       name: Fetch Secrets
       shell: bash
@@ -55,9 +54,8 @@ runs:
           RESULT+=("$KEY=$VALUE")
         done <<< "$SECRETS_LIST"
 
-        # The heredoc delimiter is randomized per run because the values between the markers are
-        # secrets this step has never seen before: a fixed marker is one a value could contain,
-        # which would end the block early and let the rest be read as further outputs.
+        # The heredoc delimiter is random per run: a fixed one could appear in a secret and end the block
+        # early.
         DELIMITER="SECRETS_EOF_$(openssl rand -hex 16)"
         {
           echo "formatted_secrets<<$DELIMITER"

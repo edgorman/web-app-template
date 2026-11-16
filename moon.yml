@@ -1,16 +1,12 @@
 $schema: './.moon/cache/schemas/project.json'
 workspace:
-  # The root project must not inherit tasks meant for real projects (e.g. .moon/tasks/terraform.yml's
-  # format/validate, tagged 'terraform' - this project carries no such tag today, but an inherited-by-
-  # default task here would run repo-wide checks against the whole tree for no reason).
+  # The root project inherits no tasks: an inherited repo-wide check would run against the whole tree.
   inheritedTasks:
     include: []
 
 tasks:
-  # Keeps hand-written wire types from coming back - api.ts's whole job is declaring API types, so
-  # any `export interface` there duplicates what src/gen already generates; internal/service is
-  # checked the same way, so a response or request shape is always an internal/api type (see
-  # packages/api/AGENTS.md).
+  # Keeps hand-written wire types out: api.ts and internal/service declare none, so a shape is always
+  # a generated one (packages/api/AGENTS.md).
   wire-types:
     script: |
       if grep -n '^export interface' services/frontend/src/lib/api.ts; then
@@ -25,11 +21,8 @@ tasks:
       - '/services/frontend/src/lib/api.ts'
       - '/services/backend/internal/service/**/*.go'
 
-  # A services/* or packages/* folder without its own moon.yml is exactly the folder
-  # services/*/moon.yml and packages/*/moon.yml globs would silently skip discovering as a
-  # project, so check for the file directly rather than parsing `moon query projects` output - the
-  # two are equivalent (a glob only picks up a folder that has one) and this needs no JSON parsing
-  # or dependency on the query command's shape.
+  # A services/* or packages/* folder without a moon.yml is one the project globs silently skip, so
+  # check for the file directly (decision 12).
   projects-covered:
     description: 'Every services/* and packages/* folder is a moon project'
     script: |
@@ -42,15 +35,13 @@ tasks:
         fi
       done
       exit "$missing"
-    # Recursive, not '/services/*': a single '*' never crosses a '/', so it matched no file inside
-    # a new folder and the check never became affected by the very change it exists to catch.
+    # Recursive: a single '*' never crosses a '/', so it would never see a new folder's files.
     inputs:
       - '/services/**/*'
       - '/packages/**/*'
       - '/.moon/workspace.yml'
 
-  # .prototools' `go` pin is a second source of truth alongside go.mod's own `go` line -
-  # keeping them in sync is a manual invariant now that setup-go no longer reads go.mod alone.
+  # .prototools' `go` pin and go.mod's `go` line must agree (decision 14).
   go-version-sync:
     description: '.prototools go pin matches services/backend/go.mod'
     script: |
@@ -64,8 +55,7 @@ tasks:
       - '/.prototools'
       - '/services/backend/go.mod'
 
-  # Every docs/decisions/NNNN-*.md a Markdown file links must exist, so a renumbered or mistyped
-  # record fails here rather than leaving a dead link in an AGENTS.md or skill.
+  # Every docs/decisions/NNNN-*.md a Markdown file links must exist.
   decision-links:
     description: 'Every decision record linked from a Markdown file exists'
     script: |

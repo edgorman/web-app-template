@@ -40,3 +40,4 @@ These records came with the template. They hold for any repository made from it 
 | [32](0032-separate-plan-and-apply-identities.md) | Plan and apply authenticate as separate identities | infrastructure |
 | [33](0033-advisory-security-scanning.md) | Security scanning is advisory | ci |
 | [34](0034-self-hosted-renovate.md) | Dependency updates come from self-hosted Renovate | ci |
+| [35](0035-moon-toolchain-cache-is-off.md) | The toolchain cache is off in CI | ci |

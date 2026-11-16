@@ -28,7 +28,7 @@ jobs:
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
-          cache: false # see pull-request.yaml's `changed` job for why
+          cache: false # decision 35
       - name: Install scanners
         run: |
           # renovate: datasource=go depName=golang.org/x/vuln
@@ -62,7 +62,7 @@ jobs:
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
-          cache: false # see pull-request.yaml's `changed` job for why
+          cache: false # decision 35
       - name: Install scanners
         run: |
           # renovate: datasource=go depName=github.com/rhysd/actionlint
@@ -84,7 +84,7 @@ jobs:
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
-          cache: false # see pull-request.yaml's `changed` job for why
+          cache: false # decision 35
       - name: Install tflint
         run: |
           # renovate: datasource=go depName=github.com/terraform-linters/tflint
@@ -123,7 +123,7 @@ jobs:
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
-          cache: false # see pull-request.yaml's `changed` job for why
+          cache: false # decision 35
       - name: Install gitleaks
         run: |
           # renovate: datasource=go depName=github.com/gitleaks/gitleaks/v8

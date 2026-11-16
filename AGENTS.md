@@ -72,7 +72,7 @@ Two project skills in `.claude/skills/` cover issue to merged PR: `implement-iss
 - **Images and bundles are never rebuilt for production.** Prod deploys the commit-SHA artifact already in its own store (`.github/AGENTS.md`).
 - **Never add a manifest at the repository root** (Repository Structure above). `CHANGELOG.md`, which release-please maintains, is not one.
 - **Never add a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` anywhere.** One such file makes Claude Code ignore every `AGENTS.md`; put instructions in the `AGENTS.md` of the directory they apply to.
-- **Reasoning goes in a decision record, not an `AGENTS.md`.** Add a rule as a bullet linking to its record; supersede a record with a new one rather than rewriting it ([`docs/decisions/`](docs/decisions/README.md)).
+- **Reasoning goes in a decision record, not an `AGENTS.md` or a comment.** Add a rule as a bullet linking to its record; supersede a record with a new one rather than rewriting it ([`docs/decisions/`](docs/decisions/README.md)). A comment in a workflow, action or `moon.yml` states the constraint in a line or two and cites the record; it never narrates history or repeats another file's explanation.
 
 ## Commit Message Convention
 
