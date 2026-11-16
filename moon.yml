@@ -7,18 +7,18 @@ workspace:
     include: []
 
 tasks:
-  # Keeps hand-written wire types from coming back now that they've been swept - api.ts's
-  # whole job is declaring API types, so any `export interface` there duplicates what src/gen
-  # already generates; internal/service is checked the same way, with debug.go's own health-check
-  # envelope the one accepted exception (see packages/protos/AGENTS.md's Contract Layer).
+  # Keeps hand-written wire types from coming back - api.ts's whole job is declaring API types, so
+  # any `export interface` there duplicates what src/gen already generates; internal/service is
+  # checked the same way, so a response or request shape is always an internal/api type (see
+  # packages/api/AGENTS.md).
   wire-types:
     script: |
       if grep -n '^export interface' services/frontend/src/lib/api.ts; then
-        echo "::error file=services/frontend/src/lib/api.ts::api.ts declares a hand-written interface - wire types must come from src/gen (see packages/protos/AGENTS.md's Contract Layer)."
+        echo "::error file=services/frontend/src/lib/api.ts::api.ts declares a hand-written interface - wire types must come from src/gen (see packages/api/AGENTS.md)."
         exit 1
       fi
-      if grep -rn 'json:"' services/backend/internal/service --include='*.go' | grep -v '_test.go' | grep -v '/debug.go:'; then
-        echo "::error::internal/service declares a hand-written json-tagged struct outside debug.go - wire types must come from packages/protos (see packages/protos/AGENTS.md's Contract Layer)."
+      if grep -rn 'json:"' services/backend/internal/service --include='*.go' | grep -v '_test.go'; then
+        echo "::error::internal/service declares a hand-written json-tagged struct - wire types must come from packages/api (see packages/api/AGENTS.md)."
         exit 1
       fi
     inputs:

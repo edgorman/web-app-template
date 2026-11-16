@@ -2,22 +2,25 @@
  * Client for the backend API (see /services/backend). Callers pass the header map from
  * useGoogleAuth, so this module knows nothing about any auth provider.
  *
- * Wire types come from `src/gen` rather than being declared here - see packages/protos/AGENTS.md's
- * "Contract Layer". This file declares no `export interface` of its own, and CI fails a PR that
- * adds one (`root:wire-types`).
+ * Types and routes come from `src/gen/schema.d.ts`, which is generated from the one contract in
+ * `packages/api/openapi.yaml` (see packages/api/AGENTS.md). A path or method that contract does not
+ * declare fails `tsc`, and CI fails a PR that adds a hand-written `export interface` here
+ * (`root:wire-types`).
  */
-import type { CurrentUser, UpdateCurrentUserRequest, User } from '../gen/app/v1/user'
-import type { ListNotesParams, Note, NotePage, NoteRequest } from '../gen/app/v1/note'
-import type { ErrorResponse } from '../gen/app/v1/error'
+import createClient from 'openapi-fetch'
+import type { components, paths } from '../gen/schema'
 
-export type { User, CurrentUser } from '../gen/app/v1/user'
-export type { Note, NotePage, ListNotesParams, NoteRequest } from '../gen/app/v1/note'
+type Schemas = components['schemas']
 
-/**
- * "public" or "private" - what a note's `visibility` actually holds, kept as a union here because
- * the proto field is a plain string (see `packages/protos/AGENTS.md`'s "Contract Layer").
- */
-export type Visibility = 'public' | 'private'
+export type User = Schemas['User']
+export type CurrentUser = Schemas['CurrentUser']
+export type Note = Schemas['Note']
+export type NotePage = Schemas['NotePage']
+export type NoteRequest = Schemas['NoteRequest']
+export type UpdateCurrentUserRequest = Schemas['UpdateCurrentUserRequest']
+/** "public" or "private": what a note's `visibility` holds. */
+export type Visibility = Schemas['Visibility']
+export type ListNotesParams = NonNullable<paths['/notes']['get']['parameters']['query']>
 
 /** Thrown for any non-2xx response, carrying the status so callers can treat 404 as "absent". */
 export class ApiError extends Error {
@@ -55,76 +58,53 @@ export type AuthHeaders = Record<string, string>
 /** What a request carrying a credential the backend rejected tells its caller. */
 export const SESSION_EXPIRED = 'Your sign-in has expired. Sign in again to carry on.'
 
-async function send<T>(
-  baseUrl: string,
-  authHeaders: AuthHeaders,
-  method: string,
-  path: string,
-  body?: unknown,
-  onUnauthorized?: () => void,
-): Promise<T> {
-  const response = await fetch(`${baseUrl.replace(/\/$/, '')}${path}`, {
-    method,
-    headers: {
-      ...authHeaders,
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
+export function createApi(baseUrl: string, authHeaders: AuthHeaders, onUnauthorized?: () => void) {
+  const client = createClient<paths>({
+    baseUrl,
+    headers: authHeaders,
+    // Looked up per call rather than captured, so a stubbed global fetch is honoured.
+    fetch: (request) => globalThis.fetch(request),
   })
 
-  // A 401 with a credential attached means the credential itself was refused - in practice, that
-  // it expired - so the caller hears that rather than a raw status, and the session is ended.
-  if (response.status === 401 && authHeaders.Authorization) {
-    onUnauthorized?.()
-    throw new ApiError(401, SESSION_EXPIRED)
+  // Every call below goes through this: it resolves with the body, or throws an ApiError for any
+  // non-2xx response, ending the session on a refused credential.
+  async function ok<T>(result: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
+    const { data, error, response } = await result
+
+    // A 401 with a credential attached means the credential itself was refused - in practice, that
+    // it expired - so the caller hears that rather than a raw status, and the session is ended.
+    if (response.status === 401 && authHeaders.Authorization) {
+      onUnauthorized?.()
+      throw new ApiError(401, SESSION_EXPIRED)
+    }
+
+    if (!response.ok) {
+      // Every non-2xx response is an ErrorResponse, but fall back to the status if it isn't one.
+      const message =
+        typeof error === 'object' && error !== null && 'error' in error && typeof error.error === 'string'
+          ? error.error
+          : undefined
+      throw new ApiError(response.status, message ?? `Request failed with ${response.status}`)
+    }
+
+    return data as T
   }
 
-  if (!response.ok) {
-    // Every non-2xx response is an ErrorResponse, but fall back to the status if parsing it fails.
-    const message = await response
-      .json()
-      .then((body: ErrorResponse) => body.error)
-      .catch(() => undefined)
-    throw new ApiError(response.status, message ?? `Request failed with ${response.status}`)
-  }
-
-  if (response.status === 204) return undefined as T
-  return response.json() as Promise<T>
-}
-
-/** The API path for a page of `GET /notes`, carrying only the params a caller actually set. */
-function notesListPath(params: ListNotesParams = {}): string {
-  const query = new URLSearchParams()
-  if (params.limit !== undefined) query.set('limit', String(params.limit))
-  if (params.startAfter) query.set('startAfter', params.startAfter)
-
-  const search = query.toString()
-  return search ? `/notes?${search}` : '/notes'
-}
-
-function noteApiPath(id: string): string {
-  return `/notes/${encodeURIComponent(id)}`
-}
-
-export function createApi(baseUrl: string, authHeaders: AuthHeaders, onUnauthorized?: () => void) {
-  // Every call below goes through this, so each one ends the session on a refused credential.
-  function request<T>(method: string, path: string, body?: unknown) {
-    return send<T>(baseUrl, authHeaders, method, path, body, onUnauthorized)
-  }
   return {
-    listNotes: (params?: ListNotesParams) => request<NotePage>('GET', notesListPath(params)),
-    getNote: (id: string) => request<Note>('GET', noteApiPath(id)),
-    createNote: (note: NoteRequest) => request<Note>('POST', '/notes', note),
-    updateNote: (id: string, note: NoteRequest) => request<Note>('PUT', noteApiPath(id), note),
-    deleteNote: (id: string) => request<void>('DELETE', noteApiPath(id)),
+    listNotes: (params?: ListNotesParams) => ok(client.GET('/notes', { params: { query: params } })),
+    getNote: (id: string) => ok(client.GET('/notes/{id}', { params: { path: { id } } })),
+    createNote: (note: NoteRequest) => ok(client.POST('/notes', { body: note })),
+    updateNote: (id: string, note: NoteRequest) =>
+      ok(client.PUT('/notes/{id}', { params: { path: { id } }, body: note })),
+    deleteNote: (id: string) => ok<void>(client.DELETE('/notes/{id}', { params: { path: { id } } })),
 
     // A profile is addressed by its username; the Google sub it is keyed by is never a URL.
-    getUser: (username: string) => request<User>('GET', `/users/${encodeURIComponent(username)}`),
+    getUser: (username: string) => ok(client.GET('/users/{username}', { params: { path: { username } } })),
     // The caller's own profile needs no name: the backend takes the owner from the credential,
     // which is also how a client discovers the username it was given at sign-up.
-    getCurrentUser: () => request<CurrentUser>('GET', '/users/me'),
-    putUser: (user: Partial<UpdateCurrentUserRequest>) => request<CurrentUser>('PUT', '/users/me', user),
-    deleteUser: () => request<void>('DELETE', '/users/me'),
+    getCurrentUser: () => ok(client.GET('/users/me')),
+    putUser: (user: UpdateCurrentUserRequest) => ok(client.PUT('/users/me', { body: user })),
+    deleteUser: () => ok<void>(client.DELETE('/users/me')),
   }
 }
 

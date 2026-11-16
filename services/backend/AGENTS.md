@@ -10,7 +10,7 @@ The Go API on Cloud Run. `README.md` here has the API, configuration, how to run
 
 ## Adding a Resource
 
-- Copy the `notes` slice end to end: proto, entity, repository interface, Firestore adapter, handlers, tests, and a composite index in `infrastructure/env/firestore.tf` for any query that filters and orders on different fields (`README.md`'s "Adding a resource").
+- Copy the `notes` slice end to end: the paths and schemas in `packages/api/openapi.yaml`, entity, repository interface, Firestore adapter, handlers, tests, and a composite index in `infrastructure/env/firestore.tf` for any query that filters and orders on different fields (`README.md`'s "Adding a resource").
 - Validate through entity setters; a repository calls `Validate` before every write and never trusts what it was handed.
 - A resource an account owns is erased by `DELETE /users/me`.
 

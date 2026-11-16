@@ -14,7 +14,7 @@ Workflows, composite actions, repository settings and the moon setup CI runs thr
 
 - Every folder under `services/` or `packages/` needs a `moon.yml`; `root:projects-covered` fails otherwise ([12](../docs/decisions/0012-hand-declared-moon-graph.md)).
 - Declare `dependsOn` by hand. Affected detection is changed files only, so a task that must react to another project lists it in `inputs` (`project://...`) ([12](../docs/decisions/0012-hand-declared-moon-graph.md)).
-- Keep `moon ci`'s targets split one-to-one with the required jobs (`lint-check`, `test`, `protos-drift`; `pr-title` and `protos-breaking` in `conventions.yaml`) ([12](../docs/decisions/0012-hand-declared-moon-graph.md)).
+- Keep `moon ci`'s targets split one-to-one with the required jobs (`lint-check`, `test`, `api-drift`; `pr-title` and `api-breaking` in `conventions.yaml`) ([12](../docs/decisions/0012-hand-declared-moon-graph.md)).
 - `deploy-{root,staging,prod}:plan` are `noop` markers whose `inputs` decide which environments a diff reaches. List every workflow and action an environment uses in its marker, and never set `runInCI: false` on one ([13](../docs/decisions/0013-deploy-markers.md)).
 - Pin tool versions only in `.prototools`; keep its `go` pin, `go.mod` and the Dockerfile image in step ([14](../docs/decisions/0014-prototools-pins-the-toolchain.md)).
 - No remote cache ([11](../docs/decisions/0011-moon-not-pants.md)).

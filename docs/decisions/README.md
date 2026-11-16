@@ -7,14 +7,14 @@ These records came with the template. They hold for any repository made from it 
 | # | Decision | Area |
 | --- | --- | --- |
 | [1](0001-manifests-live-with-their-code.md) | Manifests live with their code | repo |
-| [2](0002-generated-code-is-committed.md) | Generated code is committed, next to the code that uses it | protos |
-| [3](0003-pin-every-codegen-tool.md) | Every codegen tool is pinned exactly | protos |
-| [4](0004-ts-proto-options.md) | ts-proto options | protos |
-| [5](0005-protos-model-the-wire.md) | Protos model the wire, not the domain or the datastore | protos |
-| [6](0006-protojson-settings.md) | protojson settings | protos |
-| [7](0007-visibility-is-a-string.md) | Visibility is a string, not an enum | protos |
-| [8](0008-no-hand-written-wire-types.md) | No hand-written wire types, enforced in CI | protos |
-| [9](0009-wire-changes-across-releases.md) | Wire changes across the release window | protos |
+| [2](0002-generated-code-is-committed.md) | Generated code is committed, next to the code that uses it | protos (superseded by 28) |
+| [3](0003-pin-every-codegen-tool.md) | Every codegen tool is pinned exactly | protos (superseded by 28) |
+| [4](0004-ts-proto-options.md) | ts-proto options | protos (superseded by 28) |
+| [5](0005-protos-model-the-wire.md) | Protos model the wire, not the domain or the datastore | protos (superseded by 28) |
+| [6](0006-protojson-settings.md) | protojson settings | protos (superseded by 28) |
+| [7](0007-visibility-is-a-string.md) | Visibility is a string, not an enum | protos (superseded by 28) |
+| [8](0008-no-hand-written-wire-types.md) | No hand-written wire types, enforced in CI | protos (superseded by 28) |
+| [9](0009-wire-changes-across-releases.md) | Wire changes across the release window | protos (superseded by 28) |
 | [10](0010-one-access-policy-table.md) | One access policy table, closed by default | backend |
 | [11](0011-moon-not-pants.md) | moon, not Pants | ci |
 | [12](0012-hand-declared-moon-graph.md) | A hand-declared moon graph, affected by changed files only | ci |
@@ -33,3 +33,4 @@ These records came with the template. They hold for any repository made from it 
 | [25](0025-apply-saved-plans.md) | Applies use the plan already shown | ci |
 | [26](0026-build-only-what-changed.md) | Build only what changed, reuse the rest | ci |
 | [27](0027-artifact-stores-in-root.md) | Artifact stores are created by root, not by each environment | infrastructure |
+| [28](0028-openapi-is-the-api-contract.md) | OpenAPI is the API contract | api |

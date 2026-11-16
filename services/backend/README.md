@@ -32,8 +32,8 @@ JSON:
 | `DELETE /users/me`       | required | Erase the account: its notes, then the profile                |
 | `GET /users/{username}`  | optional | Anybody's public profile                                      |
 
-Request and response bodies are the messages in `packages/protos/app/v1`, as protojson. Every
-non-2xx response is an `ErrorResponse`. `GET /notes` takes `limit` and `startAfter` (the
+Routes and bodies are declared in `packages/api/openapi.yaml`, which `internal/api` is generated from.
+Every non-2xx response is an `ErrorResponse`. `GET /notes` takes `limit` and `startAfter` (the
 `createdAt` of the last note on the previous page) and answers `hasMore`.
 
 ## Layout
@@ -92,12 +92,15 @@ confirms that a private note exists. Only once a note is visible does a failed w
 
 Copy the notes slice end to end:
 
-1. `packages/protos/app/v1/<thing>.proto`: the wire message, a page, and a request. Run `buf generate`.
+1. `packages/api/openapi.yaml`: the paths, with `security` on each operation, and the schemas: the
+   wire shape, a page, and a request. Run `moon run packages/api:generate`, then add the routes to
+   `TestRouteAuthModes`.
 2. `internal/entity/<thing>.go`: the type, its setters, `Validate` and `Permission`, plus a
    `Resource` constant and a line per action in `access.go`'s `policy` table.
 3. `internal/repository/<thing>.go`: the interface. `internal/repository/firestore/<thing>.go`:
    the Firestore implementation, plus any composite index in `infrastructure/env/firestore.tf`.
-4. `internal/service/<thing>.go`: the handlers, registered in `service.go`'s `Handler`.
+4. `internal/service/<thing>.go`: the handlers, one method per operation, which the compiler checks
+   against the generated `api.ServerInterface`.
 5. If accounts own it, erase it in `DeleteUser` (`internal/service/user.go`).
 
 ## Rate limiting

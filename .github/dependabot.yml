@@ -38,6 +38,17 @@ updates:
         patterns:
           - '*'
 
+  - package-ecosystem: 'npm'
+    directory: '/packages/api'
+    schedule:
+      interval: 'weekly'
+    labels:
+      - ci
+    groups:
+      api-tool-deps:
+        patterns:
+          - '*'
+
   - package-ecosystem: 'gomod'
     directory: '/services/backend'
     schedule:
