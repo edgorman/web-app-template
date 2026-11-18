@@ -23,7 +23,7 @@ site_name = "My App"
 # browser's network tab regardless.
 google_client_id = ""
 
-# The following are sensitive and thus have no default
+# The following are sensitive and have no default
 # github_provider_token
 # cloudflare_api_token
 # — pass them at apply time, e.g.:
