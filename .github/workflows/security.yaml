@@ -1,6 +1,6 @@
 name: 'Security'
 
-# Advisory scanning (decision 33): every scanner reports what it finds in the job summary and as a
+# Advisory scanning (decision 17): every scanner reports what it finds in the job summary and as a
 # warning, and none of them fails a run or is a required check. A scanner that cannot run at all
 # does fail (.github/scripts/advisory.sh). Everything here is an open-source CLI run as an ordinary
 # job, so it works on any plan; code scanning and secret scanning from GitHub need a paid one.
@@ -21,18 +21,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # moon decides which scanners a pull request reaches (decision 8): each is a noop marker task
+  # (scan-go, scan-image, scan, scan-workflows, scan-secrets) whose `inputs` are what the scanner
+  # reads. No scanner is a required check (decision 17), so a skipped job costs a merge nothing. The
+  # weekly scan and a manual run have no diff, so they run everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ github.event_name != 'pull_request' || fromJSON(steps.affected.outputs.affected || '{}').go }}
+      frontend: ${{ github.event_name != 'pull_request' || fromJSON(steps.affected.outputs.affected || '{}').frontend }}
+      workflows: ${{ github.event_name != 'pull_request' || fromJSON(steps.affected.outputs.affected || '{}').workflows }}
+      terraform: ${{ github.event_name != 'pull_request' || fromJSON(steps.affected.outputs.affected || '{}').terraform }}
+      image: ${{ github.event_name != 'pull_request' || fromJSON(steps.affected.outputs.affected || '{}').image }}
+      secrets: ${{ github.event_name != 'pull_request' || fromJSON(steps.affected.outputs.affected || '{}').secrets }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: 'blob:none'
+      - id: affected
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/moon-affected
+        with:
+          # Either Terraform root is enough for tflint and trivy, which read the whole tree.
+          tasks: |
+            go=services/backend:scan-go
+            image=services/backend:scan-image
+            frontend=services/frontend:scan
+            workflows=root:scan-workflows
+            secrets=root:scan-secrets
+            terraform=infra-root:scan infra-env:scan
+
   go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+      - uses: ./.github/actions/setup-moon
         with:
           auto-install: true
-          cache: false # decision 35
       - name: Install scanners
         run: |
           # renovate: datasource=go depName=golang.org/x/vuln
-          GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          GOBIN="$RUNNER_TEMP/bin" go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
           # renovate: datasource=go depName=github.com/securego/gosec/v2
           GOBIN="$RUNNER_TEMP/bin" go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
@@ -45,24 +77,25 @@ jobs:
         run: ../../.github/scripts/advisory.sh gosec 1 gosec -no-fail ./...
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '22'
+      - uses: ./.github/actions/frontend-node
       - name: npm audit
         working-directory: services/frontend
         run: ../../.github/scripts/advisory.sh 'npm audit' 1 npm audit --omit=dev
 
   workflows:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+      - uses: ./.github/actions/setup-moon
         with:
           auto-install: true
-          cache: false # decision 35
       - name: Install scanners
         run: |
           # renovate: datasource=go depName=github.com/rhysd/actionlint
@@ -78,13 +111,14 @@ jobs:
         run: .github/scripts/advisory.sh zizmor 1 zizmor --no-exit-codes .github
 
   terraform:
+    needs: changes
+    if: needs.changes.outputs.terraform == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+      - uses: ./.github/actions/setup-moon
         with:
           auto-install: true
-          cache: false # decision 35
       - name: Install tflint
         run: |
           # renovate: datasource=go depName=github.com/terraform-linters/tflint
@@ -94,7 +128,7 @@ jobs:
         working-directory: infrastructure
         run: ../.github/scripts/advisory.sh tflint 2 tflint --recursive
       - name: trivy config
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: infrastructure
@@ -102,28 +136,31 @@ jobs:
           exit-code: '0'
 
   image:
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Build the backend image
         run: docker build -t backend:scan services/backend
       - name: trivy image
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: backend:scan
           # Advisory: report, never fail.
           exit-code: '0'
 
   secrets:
+    needs: changes
+    if: needs.changes.outputs.secrets == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+      - uses: ./.github/actions/setup-moon
         with:
           auto-install: true
-          cache: false # decision 35
       - name: Install gitleaks
         run: |
           # renovate: datasource=go depName=github.com/zricethezav/gitleaks/v8

@@ -5,7 +5,8 @@ dependsOn: ['infra-env', 'deploy-root']
 tags: ['deployment']
 
 tasks:
-  # A marker task: its `inputs` define what reaches this environment's plan/apply (decision 13).
+  # Marker for pull-request.yaml's plan job: 'inputs' define what reaches this
+  # environment's PR plan. Only the plan's own action and workflow are listed.
   plan:
     command: 'noop'
     inputs:
@@ -13,9 +14,20 @@ tasks:
       - 'terraform.tfvars'
       - 'project://infra-env'
       - '/.github/actions/terraform-pull-request/**/*'
-      - '/.github/actions/terraform-push-commit/**/*'
       - '/.github/workflows/pull-request.yaml'
+    options:
+      cache: false
+
+  # Marker for push-commit.yaml's apply job: 'inputs' define what reaches this
+  # environment's apply on a merge. Only the apply's own actions and workflow are listed.
+  apply:
+    command: 'noop'
+    inputs:
+      - 'terraform.tfbackend'
+      - 'terraform.tfvars'
+      - 'project://infra-env'
+      - '/.github/actions/terraform-push-commit/**/*'
       - '/.github/workflows/push-commit.yaml'
     options:
-      # Never runInCI: false (decision 13).
+      # Never runInCI: false (decision 7).
       cache: false

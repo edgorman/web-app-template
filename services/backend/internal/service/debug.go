@@ -7,7 +7,7 @@ import (
 	"github.com/edgorman/webapp-template/services/backend/internal/api"
 )
 
-// GetHealth and GetDebug answer the Debug Endpoint Contract (docs/decisions/0024). The GCP uptime
+// GetHealth and GetDebug answer the Debug Endpoint Contract (docs/decisions/0004-debug-endpoint-contract.md). The GCP uptime
 // check matches the literal `"status":"ok"` substring, so that field's spelling is load-bearing.
 func (s *Service) GetHealth(w http.ResponseWriter, _ *http.Request) { s.debug(w) }
 

@@ -213,7 +213,7 @@ export interface components {
         ErrorResponse: {
             error: string;
         };
-        /** @description The Debug Endpoint Contract (docs/decisions/0024). */
+        /** @description The Debug Endpoint Contract (docs/decisions/0004-debug-endpoint-contract.md). */
         DebugResponse: {
             status: string;
             /** Format: date-time */

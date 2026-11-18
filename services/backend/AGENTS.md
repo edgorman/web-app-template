@@ -4,8 +4,8 @@ The Go API on Cloud Run. `README.md` here has the API, configuration, how to run
 
 ## Access Control
 
-- Every resource and action is a line in `internal/entity/access.go`'s policy table, with one of two modes: public or private. An undeclared pair is refused ([10](../../docs/decisions/0010-one-access-policy-table.md)).
-- No roles ([10](../../docs/decisions/0010-one-access-policy-table.md)).
+- Every resource and action is a line in `internal/entity/access.go`'s policy table, with one of two modes: public or private. An undeclared pair is refused ([3](../../docs/decisions/0003-one-access-policy-table.md)).
+- No roles ([3](../../docs/decisions/0003-one-access-policy-table.md)).
 - A refused read is a `404`, not a `403` (see `README.md`).
 
 ## Adding a Resource
@@ -21,5 +21,5 @@ The Go API on Cloud Run. `README.md` here has the API, configuration, how to run
 
 ## Container image
 
-- `services/backend:image` builds the Dockerfile with `COMMIT_SHA`; CI builds it on every PR but only publishes on merge ([12](../../docs/decisions/0012-hand-declared-moon-graph.md)).
-- A second binary goes under `cmd/`, built from the same Dockerfile with `CMD=<name>`, as its own moon project and an image matrix leg in `push-commit.yaml` ([12](../../docs/decisions/0012-hand-declared-moon-graph.md), [29](../../docs/decisions/0029-build-every-merge.md)).
+- `services/backend:image` builds the Dockerfile with `COMMIT_SHA`; CI builds it on every PR but only publishes on merge ([6](../../docs/decisions/0006-hand-declared-moon-graph.md)).
+- A second binary goes under `cmd/`, built from the same Dockerfile with `CMD=<name>`, as its own moon project, an image matrix leg in `push-commit.yaml` and `push-release.yaml`, and a `publish` marker ([6](../../docs/decisions/0006-hand-declared-moon-graph.md), [12](../../docs/decisions/0012-build-only-what-changed.md)).

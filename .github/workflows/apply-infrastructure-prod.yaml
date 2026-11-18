@@ -1,8 +1,9 @@
 name: 'Apply Prod Infrastructure (Manual)'
 
-# An escape hatch, not the normal path: prod infrastructure changes through a release's promotion
-# (promote-release.yaml). This only backfills a new per-environment resource into prod ahead of
-# that, when a merge-time job now assumes it exists there (decision 17).
+# Applies `infrastructure/env` to prod outside a promotion. Prod infrastructure normally changes
+# through Promote Release (`promote-release.yaml`), step 1, with the plan posted on the release PR.
+# Run this to add a newly created per-environment resource (a bucket, a registry, an IAM binding)
+# to prod when a merge-time job already depends on it.
 on:
   workflow_dispatch:
     inputs:
@@ -14,12 +15,13 @@ permissions:
   contents: read
 
 concurrency:
-  # Shared with Promote Release: both mutate prod's Terraform state, so one queues behind the other.
+  # Shared with Promote Release; runs queue on prod's Terraform state.
   group: promote-release-main
   cancel-in-progress: false
 
 jobs:
   infrastructure-prod:
+    # Skipped until root's bootstrap writes the repository variables (docs/new-repo.md).
     if: vars.WORKLOAD_IDENTITY_PROVIDER != ''
     runs-on: ubuntu-latest
     permissions:
@@ -45,6 +47,7 @@ jobs:
         with:
           terraform_directory: 'infrastructure/env'
           config_directory: 'infrastructure/config/prod'
-          secrets: |
-            TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
-            TF_VAR_ci_service_account=${{ vars.PROMOTE_SERVICE_ACCOUNT }}
+        env:
+          # One client ID, defined in infrastructure/root, serves every environment.
+          TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
+          TF_VAR_ci_service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}

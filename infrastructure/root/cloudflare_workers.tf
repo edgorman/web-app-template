@@ -13,7 +13,7 @@ resource "cloudflare_worker" "frontend" {
   }
 }
 
-# A custom domain also creates the DNS record that routes to the Worker, so no cloudflare_dns_record.
+# Each custom domain creates the DNS record that routes to its Worker.
 resource "cloudflare_workers_custom_domain" "frontend" {
   for_each = var.frontend_hostnames
 

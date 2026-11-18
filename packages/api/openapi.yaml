@@ -315,7 +315,7 @@ components:
 
     DebugResponse:
       type: object
-      description: The Debug Endpoint Contract (docs/decisions/0024).
+      description: The Debug Endpoint Contract (docs/decisions/0004-debug-endpoint-contract.md).
       required: [status, timestamp, environment, commit]
       properties:
         status: { type: string }

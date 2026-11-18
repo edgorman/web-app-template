@@ -28,7 +28,7 @@ Each language's manifest lives in the directory that owns its code; the root dec
 
 What to run before pushing, mirroring `pull-request.yaml`:
 
-```
+```text
 # Backend (services/backend)
 go test ./... && go vet ./... && gofmt -l .
 
@@ -72,15 +72,17 @@ Two project skills in `.claude/skills/` cover issue to merged PR: `implement-iss
 - **Images and bundles are never rebuilt for production.** Prod deploys the commit-SHA artifact already in its own store (`.github/AGENTS.md`).
 - **Never add a manifest at the repository root** (Repository Structure above). `CHANGELOG.md`, which release-please maintains, is not one.
 - **Never add a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` anywhere.** One such file makes Claude Code ignore every `AGENTS.md`; put instructions in the `AGENTS.md` of the directory they apply to.
-- **Reasoning goes in a decision record, not an `AGENTS.md` or a comment.** Add a rule as a bullet linking to its record; supersede a record with a new one rather than rewriting it ([`docs/decisions/`](docs/decisions/README.md)). A comment in a workflow, action or `moon.yml` states the constraint in a line or two and cites the record; it never narrates history or repeats another file's explanation.
+- **Reasoning goes in a decision record, not an `AGENTS.md` or a comment.** Add a rule as a bullet linking to its record; edit a record in place when its decision changes ([`docs/decisions/`](docs/decisions/README.md)). A comment in a workflow, action or `moon.yml` states the constraint in a line or two and cites the record; it never narrates history or repeats another file's explanation.
 
 ## Commit Message Convention
 
-Every PR title must be a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) subject, `type(scope)?: description` (e.g. `feat(backend): paginate GET /notes`), and the `pr-title` check enforces it. PRs are squash-merged with the title as the commit subject, and versioning parses that subject ([18](docs/decisions/0018-versions-from-conventional-commits.md)):
+Every PR title must be a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) subject, `type(scope)?: description` (e.g. `feat(backend): paginate GET /notes`), and the `pr-title` check enforces it. PRs are squash-merged with the title as the commit subject, and release-please parses that subject ([13](docs/decisions/0013-releases-from-release-please.md)):
 
 - `feat:` - a new capability; bumps minor.
 - `fix:` - a bug fix; bumps patch.
-- `build`, `chore`, `ci`, `docs`, `perf`, `refactor`, `revert`, `style`, `test` - bump patch.
+- `perf`, `revert` - bump patch.
+- `build`, `chore`, `ci`, `docs`, `refactor` - bump patch, so Renovate's `build(deps):` bumps and infrastructure `chore:` changes reach production in the next release.
+- `style`, `test` - do not call for a release on their own; they ship with the next one.
 - `!` after the type or scope, or a `BREAKING CHANGE:` footer in the PR body - bumps major.
 
 This applies to PRs Claude Code opens too.

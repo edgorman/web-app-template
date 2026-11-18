@@ -5,14 +5,14 @@ description: This repo's conventions for driving a pull request to green - what 
 
 # Stewarding a PR in this repo
 
-Rules live in the `AGENTS.md` files and their reasoning in `docs/decisions/`; this is only what to do. Build and CI: `.github/AGENTS.md`. Wire contract: `packages/protos/AGENTS.md`.
+Rules live in the `AGENTS.md` files and their reasoning in `docs/decisions/`; this is only what to do. Build and CI: `.github/AGENTS.md`. Wire contract: `packages/api/AGENTS.md`.
 
 ## Before any push
 
 Run what CI runs, from the repo root, against `origin/main` (`git fetch origin main` first):
 
-```
-moon ci --base origin/main :format :lint :vet :typecheck :build root:wire-types root:projects-covered root:go-version-sync root:decision-links
+```text
+moon ci --base origin/main :format :lint :vet :typecheck :build root:wire-types root:projects-covered root:go-version-sync root:decision-links root:markdown-lint
 moon ci --base origin/main :test
 moon ci --base origin/main packages/api:drift
 moon ci --base origin/main packages/api:breaking
@@ -22,7 +22,7 @@ moon ci --base origin/main packages/api:breaking
 
 ## Required checks
 
-All seven jobs of `.github/workflows/pull-request.yaml` and both jobs of `.github/workflows/conventions.yaml` are required (`.github/settings.yml`). A job its `if:` skips reports "skipped", which counts as passing.
+Three checks are required (`.github/settings.yml`): `required`, the last job of `.github/workflows/pull-request.yaml`, and `pr-title` and `api-breaking` from `.github/workflows/conventions.yaml`. `required` fails only when a job before it (`lint-check`, `test`, `api-drift`, `infrastructure-*`) failed or was cancelled; a job its `if:` skips reports "skipped", which counts as passing. Read the failing job's own log, not `required`'s.
 
 | Check | What a failure means | Fix |
 |---|---|---|
@@ -31,23 +31,25 @@ All seven jobs of `.github/workflows/pull-request.yaml` and both jobs of `.githu
 | `lint-check` → `:validate` | `terraform validate` | Fix the HCL. You can't reproduce it locally, so read the log |
 | `lint-check` → `root:wire-types` | An `export interface` in `services/frontend/src/lib/api.ts`, or a `json:"..."` tag in `services/backend/internal/service` | Use the generated type from `src/gen` / `internal/api`. If the type doesn't exist yet, add the schema to `packages/api/openapi.yaml` |
 | `lint-check` → `root:projects-covered` | A `services/*` or `packages/*` folder has no `moon.yml` | Add one, modelled on a sibling |
+| `lint-check` → `root:markdown-lint` | A Markdown file breaks a markdownlint rule (`.markdownlint-cli2.jsonc`) | Run `npx markdownlint-cli2 "**/*.md"` and fix what it prints |
 | `lint-check` → `root:decision-links` | A Markdown file links a `docs/decisions/NNNN-*.md` that doesn't exist | Fix the link; the record's number and filename are in `docs/decisions/README.md` |
 | `lint-check` → `root:go-version-sync` | `.prototools`'s `go` pin and `services/backend/go.mod`'s `go` line differ | Change both. Also bump `FROM golang:X-alpine` in `services/backend/Dockerfile` |
 | `test` → `:test` | `go test` or Vitest | A real failure. Root-cause it |
 | `test` → `services/backend:image` | The Docker build | Usually a Go version or a file missing from the build context |
 | `api-drift` | Generated code doesn't match `packages/api/openapi.yaml` | `moon run packages/api:generate`, then commit `services/backend/internal/api` and `services/frontend/src/gen`. **Never hand-edit either folder** |
 | `pr-title` | The PR title isn't a Conventional Commit: `type(scope)?!?: description`, type one of `feat`, `fix`, `build`, `chore`, `ci`, `docs`, `perf`, `refactor`, `revert`, `style`, `test` (root `AGENTS.md`) | Edit the title. The check reruns on the edit, no push needed |
-| `api-breaking` → `packages/api:breaking` | `oasdiff` against `origin/main`'s spec found a wire break (a property or route removed, a type changed, ...) | Make the change additive (see `docs/decisions/0028-openapi-is-the-api-contract.md`). If the break is deliberate, ask the user: marking the PR breaking (`!` in the title or a `BREAKING CHANGE:` footer in the body) skips the check and bumps major. Local repro: `moon run packages/api:breaking` |
+| `api-breaking` → `packages/api:breaking` | `oasdiff` against `origin/main`'s spec found a wire break (a property or route removed, a type changed, ...) | Make the change additive (see `docs/decisions/0002-openapi-is-the-api-contract.md`). If the break is deliberate, ask the user: marking the PR breaking (`!` in the title or a `BREAKING CHANGE:` footer in the body) skips the check and bumps major. Local repro: `moon run packages/api:breaking` |
 | `changed` | `moon query affected` failed | A `moon.yml` is invalid. `MOON_BASE=origin/main moon query affected` reproduces it |
 | `infrastructure-{root,staging,prod}` | `terraform init/fmt/validate/plan` with real credentials | See below |
 
-**The `security.yaml` scanners are advisory.** They never fail a run and are not required checks. Read their job summaries (and warning annotations) for what they found, and mention anything relevant to the diff in the PR; don't treat a finding as a CI failure (`docs/decisions/0033-advisory-security-scanning.md`).
+**The `security.yaml` scanners are advisory.** They never fail a run and are not required checks. Read their job summaries (and warning annotations) for what they found, and mention anything relevant to the diff in the PR; don't treat a finding as a CI failure (`docs/decisions/0017-advisory-security-scanning.md`).
 
 **Toolchain errors are not test failures.** `proto-shim: ... Permission denied (os error 13)` is the known toolchain cache bug that `cache: false` works around in every job. If it shows up anyway, it failed before any task ran, so one re-run is allowed.
 
 ## Infrastructure plans
 
 The plan job posts its output as a PR comment. Read it:
+
 - Check that every change in the plan is one the diff meant. Flag any `destroy` or `replace` to the user, even when CI is green.
 - `fmt`/`validate` errors: fix them.
 - Plan errors (permissions, API not enabled, provider errors, state): stop and comment on the PR with the error. These need the user.
@@ -65,15 +67,16 @@ The plan job posts its output as a PR comment. Read it:
 
 ## Dependency PRs
 
-`build(deps)` PRs come from Renovate (`.github/renovate.json5`), grouped per ecosystem (`ci-deps`, `terraform-deps`, `npm-deps`, `api-tool-deps`, `gomod-deps`, `docker-deps`, `tool-deps`, plus `go toolchain` and `terraform version` for pins that live in several files):
-- Go: if the bump moves `go.mod`'s `go` line, `root:go-version-sync` fails. The `go toolchain` group moves `.prototools`, `go.mod` and the `Dockerfile` image together; if only some moved, fix the rest in the same PR.
+`build(deps)` PRs come from self-hosted Renovate, grouped per area (`backend-deps`, `frontend-deps`, `infrastructure-deps`, `ci-deps`):
+
+- Go: if the bump moves `go.mod`'s `go` line, `root:go-version-sync` fails. Bump `.prototools` and the `Dockerfile` image in the same PR.
 - `oapi-codegen` (a `go tool` in `go.mod`) or `openapi-typescript` (`packages/api/package.json`): run `moon run packages/api:generate` and commit the output, or `api-drift` fails.
 - Terraform providers: the plan comment is the review. Read it for unexpected changes.
 - A pin carrying a `# renovate:` comment is bumped by Renovate's regex manager; keep the comment on the line above when you edit it.
 
 ## Never
 
-- Hand-edit `internal/gen` or `src/gen`.
+- Hand-edit `internal/api` or `src/gen`.
 - Skip, disable or loosen a test or check to get green, including editing `root:wire-types`'s grep or a task's `inputs` to dodge a failure.
 - Add a `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md`. Any one of them makes Claude Code stop loading every `AGENTS.md`.
 - Put a manifest (`go.mod`, `package.json`, ...) at the repository root.

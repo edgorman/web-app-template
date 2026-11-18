@@ -1,7 +1,6 @@
 $schema: '../cache/schemas/tasks.json'
 
-# v2 config-based inheritance (v1's filename-based tasks/<lang>-<type>.yml no longer applies):
-# every project tagged 'terraform' (infra-root, infra-env) picks these up without repeating them.
+# Every project tagged 'terraform' (infra-root, infra-env) picks these up without repeating them.
 inheritedBy:
   tags: ['terraform']
 
@@ -15,3 +14,13 @@ tasks:
       # `terraform init` needs registry.terraform.io, which a Claude Code cloud session may not reach
       # (see AGENTS.md): runs in CI only.
       runInCI: 'only'
+  # Marker for security.yaml's terraform job (tflint and trivy read every .tf file).
+  scan:
+    command: 'noop'
+    inputs:
+      - '**/*'
+      - '/.prototools'
+      - '/.github/workflows/security.yaml'
+      - '/.github/scripts/advisory.sh'
+    options:
+      cache: false

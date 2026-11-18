@@ -2,7 +2,7 @@
 # They live here rather than in infrastructure/env because every merge publishes into every
 # environment's stores (see Staging Deployments in `.github/AGENTS.md`), while env Terraform only
 # reaches prod on promotion. Root applies ahead of staging on every merge it affects, and on the
-# first one, so prod's stores exist before anything is pushed to them (decision 27, docs/decisions).
+# first one, so prod's stores exist before anything is pushed to them (decision 22, docs/decisions).
 # A new store any merge writes to belongs here too, for the same reason.
 
 resource "google_project_service" "artifact_registry" {

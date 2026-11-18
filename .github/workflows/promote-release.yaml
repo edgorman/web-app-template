@@ -1,8 +1,8 @@
 name: 'Promote Release'
 
 # Deploys a release to production from the commit-SHA artifacts already in prod's own stores:
-# push-commit.yaml calls it when release-please cuts a release, and it is run by hand to roll back
-# (or finish a failed promotion) with an earlier release tag. Nothing is rebuilt (decisions 15, 30).
+# push-release.yaml calls it when release-please cuts a release, and it is run by hand to roll back
+# (or finish a failed promotion) with an earlier release tag. Nothing is rebuilt (decisions 11, 13).
 on:
   workflow_call:
     inputs:
@@ -53,7 +53,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-  # Step 1: infra applies before any service is touched, re-planned in the job (decision 31).
+  # Step 1: infra applies before any service is touched, re-planned in the job (decision 16).
   infrastructure-prod:
     needs: target
     runs-on: ubuntu-latest
@@ -73,19 +73,25 @@ jobs:
         with:
           terraform_directory: 'infrastructure/env'
           config_directory: 'infrastructure/config/prod'
-          secrets: |
-            TF_VAR_google_client_id=${{ vars.GOOGLE_CLIENT_ID }}
-            TF_VAR_ci_service_account=${{ vars.PROMOTE_SERVICE_ACCOUNT }}
+        env:
+          TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
+          TF_VAR_ci_service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
 
-  # Step 2: deploy the commit-SHA image already in prod's registry. It reads nothing from staging.
-  services-backend:
+  # Step 2: deploy the commit-SHA image already in prod's registry, one leg per image (a second binary
+  # under cmd/ adds one). It reads nothing from staging.
+  services:
+    name: services-${{ matrix.service }}
     needs: [target, infrastructure-prod]
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    outputs:
-      backend_url: ${{ steps.deploy.outputs.backend_url }}
+    env:
+      IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_PREFIX }}-prod/backend/${{ matrix.service }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -95,27 +101,23 @@ jobs:
         with:
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-      # The release-<version> tag is for retention only (decision 22); the deploy goes by commit SHA.
+      # The release-<version> tag is for retention only (decision 23); the deploy goes by commit SHA.
       - name: Tag the image with its release
         env:
-          IMAGE: '${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_PREFIX }}-prod/backend/backend'
           RELEASE: ${{ needs.target.outputs.tag }}
           SHA: ${{ needs.target.outputs.sha }}
         run: gcloud artifacts docker tags add "$IMAGE:$SHA" "$IMAGE:release-$RELEASE" --quiet
-      - id: deploy
-        uses: ./.github/actions/backend-cloudrun-deploy
+      - uses: ./.github/actions/backend-cloudrun-deploy
         with:
           gcp_project_id: '${{ vars.GCP_PROJECT_PREFIX }}-prod'
-          gcp_region: ${{ vars.GCP_REGION }}
-          service_name: 'backend-prod'
-          image: '${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_PREFIX }}-prod/backend/backend:${{ needs.target.outputs.sha }}'
+          gcp_region: '${{ vars.GCP_REGION }}'
+          service_name: '${{ matrix.service }}-prod'
+          image: '${{ env.IMAGE }}:${{ needs.target.outputs.sha }}'
 
-  # Step 3: fetch the commit-SHA folder from prod's own bucket and deploy it, with config.json
-  # written from the just-promoted backend URL.
+  # Step 3, once the backend is live: fetch the commit-SHA folder from prod's own bucket and deploy
+  # it, with config.json written from the backend's URL.
   services-frontend:
-    needs: [target, infrastructure-prod, services-backend]
+    needs: [target, infrastructure-prod, services]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,26 +126,36 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.target.outputs.sha }}
-      - id: secrets
-        uses: ./.github/actions/gcp-secret-manager
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
         with:
-          project_id: ${{ vars.GCP_ROOT_PROJECT }}
           workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
-          secrets_list: |
-            CLOUDFLARE_API_TOKEN=cloudflare_api_token
+      - id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@bc9c54b29fdffb8a47776820a7d26e77b379d262 # v3.0.0
+        with:
+          secrets: |-
+            cloudflare_api_token: projects/${{ vars.GCP_ROOT_PROJECT }}/secrets/cloudflare_api_token/versions/latest
+      - id: backend
+        name: Get Backend URL
+        shell: bash
+        run: |
+          URL=$(gcloud run services describe backend-prod \
+            --region=${{ vars.GCP_REGION }} \
+            --project=${{ vars.GCP_PROJECT_PREFIX }}-prod \
+            --format='value(status.url)')
+          test -n "$URL" || { echo '::error::backend-prod URL not found'; exit 1; }
+          echo "backend_url=$URL" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/frontend-fetch
         with:
           gcp_project_id: '${{ vars.GCP_PROJECT_PREFIX }}-prod'
           sha: ${{ needs.target.outputs.sha }}
-          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.PROMOTE_SERVICE_ACCOUNT }}
       - uses: ./.github/actions/frontend-deploy
         with:
-          secrets: ${{ steps.secrets.outputs.secrets }}
+          cloudflare_api_token: ${{ steps.secrets.outputs.cloudflare_api_token }}
           cloudflare_project_name: '${{ vars.GCP_PROJECT_PREFIX }}-prod'
           cloudflare_account_id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          backend_url: ${{ needs.services-backend.outputs.backend_url }}
+          backend_url: ${{ steps.backend.outputs.backend_url }}
           version: ${{ needs.target.outputs.tag }}
           environment: 'production'
           site_url: ${{ vars.PRODUCTION_URL }}

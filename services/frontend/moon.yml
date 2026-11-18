@@ -34,7 +34,7 @@ tasks:
     command: 'npm test'
     deps: ['install']
     # An external project input, not a dependsOn relation: `--affected` doesn't follow graph relations,
-    # and a spec-only edit must still mark this task affected (decision 12).
+    # and a spec-only edit must still mark this task affected (decision 6).
     inputs: ['@group(sources)', '@group(configs)', 'project://packages/api']
   build:
     command: 'npm run build'
@@ -46,3 +46,29 @@ tasks:
     command: 'npm run dev'
     deps: ['install']
     preset: 'server'
+  # A marker task, like the deploy-*:plan ones: its 'inputs' decide whether a merge rebuilds the
+  # bundle or reuses the last release's (push-commit.yaml's `changed` job, decision 12).
+  publish:
+    command: 'noop'
+    inputs:
+      - '@group(sources)'
+      - '@group(configs)'
+      - '/.github/actions/frontend-artifact/**/*'
+      - '/.github/actions/frontend-build/**/*'
+      - '/.github/actions/frontend-node/**/*'
+      - '/.github/actions/frontend-publish/**/*'
+    options:
+      cache: false
+
+  # Marker for security.yaml's frontend job: npm audit reads the lockfile and the API types.
+  scan:
+    command: 'noop'
+    inputs:
+      - '@group(configs)'
+      - 'project://packages/api'
+      - '/.prototools'
+      - '/.github/actions/frontend-node/**/*'
+      - '/.github/workflows/security.yaml'
+      - '/.github/scripts/advisory.sh'
+    options:
+      cache: false
