@@ -1,26 +1,24 @@
 name: 'Conventions'
 
-# Separate from pull-request.yaml so a title edit reruns only these cheap checks. `edited` covers
-# the title and the body (for the BREAKING CHANGE: footer).
+# Separate from pull-request.yaml so a title edit reruns only these two cheap checks, not the
+# whole build. `edited` covers the title (and body, for the BREAKING CHANGE: footer).
 on:
   pull_request:
     branches:
       - main
     types: [opened, edited, synchronize, reopened]
-  merge_group:
 
 permissions:
   contents: read
 
 concurrency:
-  group: conventions-${{ github.event.pull_request.number || github.ref }}
+  group: conventions-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  # The squash commit subject is the PR title, and versioning parses it. Skipped in a merge queue,
-  # where the title was already checked.
+  # The squash commit subject is the PR title, and versioning parses it (root AGENTS.md, Commit
+  # Message Convention).
   pr-title:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Check Conventional Commit title
@@ -34,8 +32,8 @@ jobs:
             exit 1
           fi
 
-  # oasdiff against main's spec, unless the PR is marked breaking (`!` or `BREAKING CHANGE:`, read from
-  # the squash commit in a merge queue), which also bumps major (decision 30).
+  # oasdiff against main's spec, unless the PR declares itself breaking, so a deliberate wire break
+  # also bumps major.
   api-breaking:
     runs-on: ubuntu-latest
     steps:
@@ -43,23 +41,35 @@ jobs:
         # Full history, so origin/main is there to read main's spec from.
         with:
           fetch-depth: 0
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+      # moon alone first; the toolchain is only installed if the check will run, so a PR that
+      # leaves the spec alone, or marks itself breaking, pays for neither.
+      - id: affected
+        uses: ./.github/actions/moon-affected
         with:
-          auto-install: true
-          # moon setup installs proto and every tool before any task starts (decision 35).
-          auto-setup: true
-          cache: false # decision 35
-      - name: moon ci
+          tasks: 'breaking=packages/api:breaking'
+      - id: run
+        name: Decide whether the check runs
         shell: bash
         env:
           TITLE: ${{ github.event.pull_request.title }}
-          BODY: ${{ github.event.pull_request.body || github.event.merge_group.head_commit.message }}
-          MOON_BASE: origin/main
+          BODY: ${{ github.event.pull_request.body }}
+          AFFECTED: ${{ fromJSON(steps.affected.outputs.affected).breaking }}
         run: |
-          subject="${TITLE:-${BODY%%$'\n'*}}"
           re='^[a-z]+(\([^)]+\))?!:'
-          if [[ "$subject" =~ $re ]] || grep -qE '^BREAKING[ -]CHANGE:' <<<"$BODY"; then
+          if [[ "$TITLE" =~ $re ]] || grep -qE '^BREAKING[ -]CHANGE:' <<<"$BODY"; then
             echo "Marked breaking; skipping the API breaking-change check."
-            exit 0
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+          else
+            echo "run=$AFFECTED" >> "$GITHUB_OUTPUT"
           fi
-          moon ci packages/api:breaking
+      - name: Install the toolchain
+        if: steps.run.outputs.run == 'true'
+        uses: ./.github/actions/setup-moon
+        with:
+          auto-install: true
+      - name: moon ci
+        if: steps.run.outputs.run == 'true'
+        shell: bash
+        run: moon ci packages/api:breaking
+        env:
+          MOON_BASE: origin/main

@@ -19,7 +19,7 @@ tasks:
   test:
     command: 'go test ./...'
     # An external project input, not a dependsOn relation: `--affected` doesn't follow graph relations,
-    # and a spec-only edit must still mark this task affected (decision 12). The emulator's address is
+    # and a spec-only edit must still mark this task affected (decision 6). The emulator's address is
     # an input too, since with it set the Firestore tests run instead of skipping.
     inputs: ['@group(sources)', 'project://packages/api', '$FIRESTORE_EMULATOR_HOST']
   build:
@@ -46,3 +46,39 @@ tasks:
       ENVIRONMENT: 'local'
       DEV_AUTH: 'true'
     preset: 'server'
+  # A marker task, like the deploy-*:plan ones: its 'inputs' decide whether a merge rebuilds the
+  # image or reuses the last release's (push-commit.yaml's `changed` job, decision 12).
+  publish:
+    command: 'noop'
+    inputs:
+      - '@group(sources)'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '/.github/actions/backend-deploy/**/*'
+      - '/.github/actions/backend-cloudrun-deploy/**/*'
+    options:
+      cache: false
+
+  # Marker for security.yaml's go job (decision 8): affected when govulncheck or gosec has new code to read.
+  scan-go:
+    command: 'noop'
+    inputs:
+      - '@group(sources)'
+      - 'project://packages/api'
+      - '/.prototools'
+      - '/.github/workflows/security.yaml'
+      - '/.github/scripts/advisory.sh'
+    options:
+      cache: false
+
+  # Marker for security.yaml's image job.
+  scan-image:
+    command: 'noop'
+    inputs:
+      - '@group(sources)'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - '/.github/workflows/security.yaml'
+      - '/.github/scripts/advisory.sh'
+    options:
+      cache: false
