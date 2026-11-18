@@ -10,11 +10,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-      with:
-        node-version: '22'
-        cache: 'npm'
-        cache-dependency-path: services/frontend/package-lock.json
+    - uses: ./.github/actions/frontend-node
 
     - name: Install Dependencies
       shell: bash
@@ -22,7 +18,7 @@ runs:
       run: npm ci
 
     # The bundle is environment-neutral - no backend URL baked in - so one dist/ serves every
-    # environment, told its backend at deploy time via config.json (decision 15).
+    # environment, told its backend at deploy time via config.json (decision 11).
     - name: Build
       shell: bash
       working-directory: services/frontend
