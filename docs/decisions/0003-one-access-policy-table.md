@@ -1,6 +1,4 @@
-# 10. One access policy table, closed by default
-
-Status: Accepted
+# 3. One access policy table, closed by default
 
 ## Context
 

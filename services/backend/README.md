@@ -38,7 +38,7 @@ Every non-2xx response is an `ErrorResponse`. `GET /notes` takes `limit` and `st
 
 ## Layout
 
-```
+```text
 cmd/backend/          Entrypoint: reads config, builds adapters, hands them to the service
 internal/
   entity/             Domain types and their rules - no I/O, no HTTP, no persistence tags
